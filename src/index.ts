@@ -14,13 +14,14 @@ function game(sketch: p5) {
 
     let iterations: Array<number> = [];
     let iteration: number = 0;
+    let tempPath:Array<number> = [];
 
     sketch.setup = () => {
         sketch.createCanvas(gridSquareSize*gridSquaresPrAxis, gridSquareSize*gridSquaresPrAxis);
         snake = new Snake();
         // @todo revert when not testing
         //snake = new Snake([{x:0,y:0},{x:0,y:1},{x:0,y:2},{x:0,y:3},{x:0,y:4}],5);
-        grid = new Grid(gridSquaresPrAxis);
+        grid = new Grid(gridSquaresPrAxis,snake);
         algo = new EdgeAdjacencyAlgorithm(snake,grid);
         refreshApple();
     };
@@ -42,42 +43,67 @@ function game(sketch: p5) {
         }
         const nextMove: CardinalDirectionsEnum = typeof testingSteps[iteration] !== 'undefined' ? testingSteps[iteration] : algo.determineNextMoveDirection();
         */
-        const nextMove: CardinalDirectionsEnum =  algo.determineNextMoveDirection();
-        if(!grid.maySnakeMoveInDirection(snake.head,nextMove))
+
+
+
+        const nextMove: CardinalDirectionsEnum|Array<number> =  algo.determineNextMoveDirection(tempPath);
+        if(Array.isArray(nextMove))
         {
-            alert('Dead');
-            reset();
-            return;
+            tempPath = nextMove;
         }
+        /*        if(!grid.maySnakeMoveInDirection(snake.head,nextMove))
+                {
+                    alert('Dead');
+                    reset();
+                    return;
+                }
 
 
-        const snakeMove = snake.move(nextMove)
-        grid.applySnakeMove(snakeMove)
-        grid.applySnakeDuration(snake);
 
-        // If the snake has moved into the apple
-        if(snakeMove.newHead.x === apple.getPosition.x && snakeMove.newHead.y === apple.getPosition.y){
-            snake.increaseBodyLength();
-            snake.appendBodyPart(apple.getPosition);
-            refreshApple();
-        }
+                const snakeMove = snake.move(nextMove)
+                grid.applySnakeMove(snakeMove)
+                grid.applySnakeDuration(snake);
+
+                // If the snake has moved into the apple
+                if(snakeMove.newHead.x === apple.getPosition.x && snakeMove.newHead.y === apple.getPosition.y){
+                    snake.increaseBodyLength();
+                    snake.appendBodyPart(apple.getPosition);
+                    refreshApple();
+                }
+        */
 
         // Draw
+
+        // Render snake body
         sketch.fill(255)
         snake.getBodyParts.forEach((position: GridPosition) => {
             sketch.rect(position.x*gridSquareSize,position.y*gridSquareSize,gridSquareSize,gridSquareSize)
         })
 
+        // Render snake head
         sketch.fill(127,255,0)
         sketch.rect(snake.getBodyParts[0].x*gridSquareSize,snake.getBodyParts[0].y*gridSquareSize,gridSquareSize,gridSquareSize)
 
+        // Render apple
         sketch.fill(220,20,60);
         sketch.rect(apple.getPosition.x*gridSquareSize,apple.getPosition.y*gridSquareSize,gridSquareSize,gridSquareSize)
 
-        sketch.fill(173,216,230,80)
+        sketch.stroke(135,206,250)
+        algo.getPath.forEach((position:GridPosition,i:number) => {
+            if(typeof algo.getPath[i-1] !== 'undefined'){
+                const x1 = algo.getPath[i-1].x*gridSquareSize+gridSquareSize/2;
+                const y1 = algo.getPath[i-1].y*gridSquareSize+gridSquareSize/2;
+
+                const x2 = position.x*gridSquareSize+gridSquareSize/2;
+                const y2 = position.y*gridSquareSize+gridSquareSize/2;
+                sketch.line(x1, y1, x2, y2);
+            }
+        })
+        sketch.stroke(0)
 
         // Only relevant for the NaiveAlgorithm
         /*let last: AlgorithmStep;
+        sketch.fill(173,216,230,80)
         algo.getPathSteps.forEach((step: AlgorithmStep) => {
             if(typeof last === 'undefined' || last.direction !== step.direction){
                 last = step;
@@ -93,7 +119,7 @@ function game(sketch: p5) {
      */
     const reset = () => {
         snake = new Snake();
-        grid = new Grid(gridSquaresPrAxis);
+        grid = new Grid(gridSquaresPrAxis,snake);
         algo = new EdgeAdjacencyAlgorithm(snake,grid);
         refreshApple();
     }

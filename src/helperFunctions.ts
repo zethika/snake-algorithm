@@ -18,6 +18,60 @@ export function determinePositionInDirection(position: GridPosition, direction: 
 }
 
 /**
+ * Returns true if both positions are at the same coordinates
+ * @param position1
+ * @param position2
+ */
+export function isPositionsIdentical(position1: GridPosition, position2: GridPosition): boolean {
+    return position1.x === position2.x && position2.y === position2.y
+}
+
+/**
+ * Returns an array of directions, weighted by one source position towards a target position
+ */
+export function getWeightedDirections(source: GridPosition, target: GridPosition): Array<CardinalDirectionsEnum>{
+    const isHigher = source.y < target.y;
+    const isLeftOf = source.x < target.x;
+
+    let directions: Array<CardinalDirectionsEnum> = [];
+    if(source.y === target.y){
+        directions = (isLeftOf) ?
+            [CardinalDirectionsEnum.Right, CardinalDirectionsEnum.Left, CardinalDirectionsEnum.Down, CardinalDirectionsEnum.Up] :
+            [CardinalDirectionsEnum.Left, CardinalDirectionsEnum.Right, CardinalDirectionsEnum.Down, CardinalDirectionsEnum.Up]
+    } else if(source.x === target.x){
+        directions = (isHigher) ?
+            [CardinalDirectionsEnum.Down, CardinalDirectionsEnum.Up, CardinalDirectionsEnum.Right, CardinalDirectionsEnum.Left] :
+            [CardinalDirectionsEnum.Up, CardinalDirectionsEnum.Down, CardinalDirectionsEnum.Right, CardinalDirectionsEnum.Left]
+    } else if(isHigher){
+        directions = (isLeftOf) ?
+            [CardinalDirectionsEnum.Right, CardinalDirectionsEnum.Down, CardinalDirectionsEnum.Left, CardinalDirectionsEnum.Up] :
+            [CardinalDirectionsEnum.Down, CardinalDirectionsEnum.Left, CardinalDirectionsEnum.Right, CardinalDirectionsEnum.Up]
+    } else {
+        directions = (isLeftOf) ?
+            [CardinalDirectionsEnum.Right, CardinalDirectionsEnum.Up, CardinalDirectionsEnum.Left, CardinalDirectionsEnum.Down] :
+            [CardinalDirectionsEnum.Up, CardinalDirectionsEnum.Left, CardinalDirectionsEnum.Right, CardinalDirectionsEnum.Down]
+    }
+    return directions;
+}
+
+/**
+ * Determines if two GridPositions are adjacent
+ *
+ * @todo should be possible with pure math - replace?
+ *
+ * @param position1
+ * @param position2
+ */
+export function isPositionsAdjacent(position1: GridPosition, position2: GridPosition): boolean{
+    if(position1.x === position2.x){
+        return Math.abs(position1.y - position2.y) === 1
+    } else if(position1.y === position2.y){
+        return Math.abs(position1.x - position2.x) === 1
+    }
+    return false;
+}
+
+/**
  * Draws a triangle with its point pointing towards a given direction, in a given position
  * @param sketch
  * @param position

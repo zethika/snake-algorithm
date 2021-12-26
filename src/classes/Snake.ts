@@ -15,7 +15,7 @@ export interface SnakeMoveResponse {
  * There should only ever be one snake pr. Grid
  */
 export default class {
-    constructor(private bodyParts: Array<GridPosition> = [{x:0,y:0}], private bodyLength: number = 1) {}
+    constructor(private bodyParts: Array<GridPosition> = [{x:2,y:2}], private bodyLength: number = 1) {}
 
     /**
      * Helper for getting the head of the snake.

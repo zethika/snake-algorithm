@@ -1,7 +1,7 @@
 import GridSquare, {GridSquareStateEnum} from "@src/classes/GridSquare";
 import Snake, {SnakeMoveResponse} from "@src/classes/Snake";
 import {CardinalDirectionsEnum, CardinalDirectionsMap, GridPosition} from "@src/definitions";
-import {determinePositionInDirection} from "@src/helperFunctions";
+import {determinePositionInDirection, isPositionsIdentical} from "@src/helperFunctions";
 
 /**
  * The games' Grid entity
@@ -16,8 +16,9 @@ export default class Grid {
 
     /**
      * @param size The size of the grid, in squares, on both axis.
+     * @param initialSnake The snakes' initial state
      */
-    constructor(private size: number) {
+    constructor(private size: number, private initialSnake: Snake) {
         this.squareMap = [];
         for(let x = 0; x < size; x++){
             this.squareMap[x] = []
@@ -25,6 +26,9 @@ export default class Grid {
                 this.squareMap[x][y] = new GridSquare({x: x, y: y})
             }
         }
+        initialSnake.getBodyParts.forEach((part:GridPosition) => {
+            this.setPositionState(part,GridSquareStateEnum.Snake)
+        })
     }
 
     get getSize(): number {
@@ -109,13 +113,14 @@ export default class Grid {
      * @param head
      * @param direction
      * @param inSteps
+     * @param allowedPosition The position of the snake head, if it should be allowed
      */
-    maySnakeMoveInDirection(head: GridPosition, direction: CardinalDirectionsEnum, inSteps?: number): boolean{
+    maySnakeMoveInDirection(head: GridPosition, direction: CardinalDirectionsEnum, inSteps?: number, allowedPosition?: GridPosition): boolean{
         const newPosition = determinePositionInDirection(head, direction);
         if(!this.isPositionValid(newPosition))
             return false;
 
-        if(this.squareMap[newPosition.x][newPosition.y].state !== GridSquareStateEnum.Snake)
+        if(this.squareMap[newPosition.x][newPosition.y].state !== GridSquareStateEnum.Snake || (typeof allowedPosition !== 'undefined' && isPositionsIdentical(allowedPosition,newPosition)))
             return true;
 
         if(this.squareMap[newPosition.x][newPosition.y].getSnakeDuration === null)

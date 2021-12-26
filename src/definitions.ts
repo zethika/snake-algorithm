@@ -36,3 +36,13 @@ export interface CardinalDirectionsMap<T> {
     2: T,
     3: T,
 }
+
+/**
+ * Helper map over the reverse directions of a given cardinal direction
+ */
+export const ReverseCardinalDirection = {
+    0: 1,
+    1: 0,
+    2: 3,
+    3: 2
+}
