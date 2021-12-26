@@ -25,7 +25,6 @@ import {GridSquareStateEnum} from "@src/classes/GridSquare";
  */
 export default class EdgeAdjacencyAlgorithm {
     private desiredPathLength: number;
-    private currentWeightedDirections: Array<CardinalDirectionsEnum>;
 
     private path: Array<GridPosition> = [];
 
@@ -61,24 +60,12 @@ export default class EdgeAdjacencyAlgorithm {
      * Gets the next move direction the Snake should take
      */
     determineNextMoveDirection(tempPath: Array<number>): CardinalDirectionsEnum|Array<number>{
-        // Hamiltonian logic
-        const hamDirection = this.determineByHamiltonian(tempPath);
-        if(hamDirection !== null)
-            return hamDirection;
-
-        // Priorities
-        // 1. is there a square next to the head with only 1 empty adjacency, go there
-        // @todo is this necessary? Most scenarios I can think of of this being necessary, would implicitly be solved by the "don't split grids" rule?
-        // Disabled for now.
-        if(false && this.snake.getBodyLength !== 1) {
-            const singularDirection = this.determineSingularDirection()
-            if(singularDirection !== null)
-                return singularDirection;
+        if(this.shouldUseHamiltonian()) {
+            // Hamiltonian logic
+            const hamDirection = this.determineByHamiltonian(tempPath);
+            if (hamDirection !== null)
+                return hamDirection;
         }
-
-        // 2. Don't split grids
-
-        // 3. If must split grids, move into the larger grid afterwards
 
         // Is square empty, go there
         let direction = this.getNextDirectDirection();
@@ -86,6 +73,18 @@ export default class EdgeAdjacencyAlgorithm {
             direction = this.attemptNaiveCollisionCorrect(direction);
 
         return direction
+    }
+
+    /**
+     * Determines if hamiltonian logic should be applied to the next step
+     * Since it is a much heavier process, we should disable it when possible
+     */
+    shouldUseHamiltonian(){
+        // Since it is impossible to kill on own body before 4 bodyparts and the regular algorithm works fine till then
+        if(this.snake.getBodyLength < 4)
+            return false;
+
+        return true;
     }
 
     /**
@@ -173,8 +172,7 @@ export default class EdgeAdjacencyAlgorithm {
 
         // If we are at the last expected position of the cycle
         if (this.path.length === this.desiredPathLength) {
-            // Return true if the first and last positions are adjacent
-            return isPositionsAdjacent(previousPath,this.path[0]);
+            return true;
         }
 
 
@@ -182,48 +180,82 @@ export default class EdgeAdjacencyAlgorithm {
         let directions = getWeightedDirections(previousPath,this.path[0])
         // Remove the direction we came from
         directions.splice(directions.indexOf(ReverseCardinalDirection[originatingDirection]),1);
+        directions = directions.filter((direction) => this.isPositionViable(determinePositionInDirection(previousPath,direction)));
         // Reverse the array, we want the path to trend towards the edges away from the target
         directions.reverse();
 
         directions = this.sortDirectionsByEdgesOnAdjacentPositions(directions,previousPath);
+
+        //directions = this.deprioritizeDirectionsResultingInGridSplit(directions,previousPath);
+
         // Check all directions in succession
         for (let i = typeof tempPath[tempPosition] !== 'undefined' ? tempPath[tempPosition] : 0 ; i < 3; i++) {
             // Get the position with the new direction
             const newPosition = determinePositionInDirection(previousPath,directions[i]);
-            // Check if a snake may move in that direction to begin with
-            if (this.isPositionViable(newPosition)) {
-                const coords = newPosition.x+'-'+newPosition.y;
-                // If we have not already checked the position once
-                if(typeof this.added[coords] === 'undefined'){
-                    this.path.push(newPosition);
-                    this.added[coords] = true;
-                    this.availableGrid[newPosition.x][newPosition.y] = 0;
+            const coords = newPosition.x+'-'+newPosition.y;
+            // If we have not already checked the position once
+            if(typeof this.added[coords] === 'undefined'){
+                this.path.push(newPosition);
+                this.added[coords] = true;
+                this.availableGrid[newPosition.x][newPosition.y] = 0;
 
-                    if(typeof tempPath[tempPosition] === 'undefined'){
-                        tempPath[tempPosition] = i;
-                        return tempPath;
-                    }
-                    // Proceed to the next point
-                    const hamResult = this.hamCycleUtil(directions[i],tempPath,tempPosition+1);
-                    if(Array.isArray(hamResult))
-                        return hamResult;
-                    if(hamResult === true)
-                        return true;
-
-                    //if (this.hamCycleUtil(directions[i],tempPath,tempPosition+1) === true) return true;
-
-                    // Remove from path if not viable
-                    this.path.splice(this.path.length-1,1);
-                    delete this.added[coords]
-                    this.availableGrid[newPosition.x][newPosition.y] = 1;
-                    tempPath.splice(tempPosition,1)
+                if(typeof tempPath[tempPosition] === 'undefined'){
+                    tempPath[tempPosition] = i;
+                    return tempPath;
                 }
+                // Proceed to the next point
+                const hamResult = this.hamCycleUtil(directions[i],tempPath,tempPosition+1);
+                if(Array.isArray(hamResult))
+                    return hamResult;
+                if(hamResult === true)
+                    return true;
+
+                // Remove from path if not viable
+                this.path.splice(this.path.length-1,1);
+                delete this.added[coords]
+                this.availableGrid[newPosition.x][newPosition.y] = 1;
+                tempPath.splice(tempPosition,1)
             }
         }
 
         /* If no vertex can be added to Hamiltonian Cycle
       constructed so far, then return false */
         return false;
+    }
+
+    /**
+     * Deprioritizes directions which results in splitting the grid into multiple subgrids
+     */
+    deprioritizeDirectionsResultingInGridSplit(directions: Array<CardinalDirectionsEnum>, source: GridPosition){
+        // If there isn't enough elements to sort, short circuit
+        if(directions.length < 2)
+            return directions;
+
+        const directionResults: Record<number, boolean> = directions.map((direction) => this.wouldFillSplitGrid(determinePositionInDirection(source,direction)));
+        directions.sort((a,b) => {
+            if(directionResults[a] === directionResults[b]) return 0;
+            return (directionResults[a] === true) ? 1 : -1;
+        })
+        return directions;
+    }
+
+    /**
+     * Determines if filling the given position, would result in split grids.
+     * This is judged by checking all surrounding positions, if there is precisely 2 open edges, and it isn't a corner, it would split
+     * @param position
+     */
+    wouldFillSplitGrid(position: GridPosition){
+        // If position is a corner, it does not make sense to describe it as "splitting the grid" as there will always only be 2 open edges.
+        if(!this.isPositionViable(position) || this.grid.isPositionOnEdge(position))
+            return false;
+
+        const directions = getArrayOfAllDirections();
+        let openEdges = 0;
+        for(let i = 0; i < directions.length; i++){
+            if(this.isPositionViable(determinePositionInDirection(position,directions[i])))
+                openEdges++;
+        }
+        return (openEdges === 2);
     }
 
     /**
@@ -277,31 +309,6 @@ export default class EdgeAdjacencyAlgorithm {
         return typeof this.availableGrid[position.x] !== 'undefined' && typeof this.availableGrid[position.x][position.y] !== 'undefined';
     }
 
-    /**
-     * Determines if there is any adjacent blocks to the snake head with only a single open path.
-     *
-     * @todo make it smarter so it doesn't loop over the same squares multiple times?
-     *
-     * @returns The direction of the square, or null if none exists
-     */
-    determineSingularDirection(): CardinalDirectionsEnum|null {
-        for (let direction in CardinalDirectionsEnum) {
-            if(!this.grid.maySnakeMoveInDirection(this.snake.head,Number(direction)))
-                continue;
-
-            const adjacentSquare = determinePositionInDirection(this.snake.head,Number(direction));
-            const squaresAdjacent: CardinalDirectionsMap<GridSquareStateEnum|null> = this.grid.getAdjacentSquareStates(adjacentSquare);
-            let empty = 0;
-            Object.entries(squaresAdjacent).forEach(value => {
-                const state: GridSquareStateEnum = value[1];
-                if(state === GridSquareStateEnum.Empty || state === GridSquareStateEnum.Apple)
-                    empty++;
-            })
-            if(empty === 1)
-                return Number(direction);
-        }
-        return null;
-    }
     /**
      * Gets the next direction the snake should take to move directly towards the apple.
      */

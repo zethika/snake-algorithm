@@ -80,15 +80,6 @@ export default class Grid {
     }
 
     /**
-     * Sets how long the square on a given position will be in the snake state
-     * @param position
-     * @param duration
-     */
-    setPositionSnakeDuration(position: GridPosition, duration: number|null){
-        this.squareMap[position.x][position.y].snakeDuration = duration
-    }
-
-    /**
      * Finds a random empty position on the grid, if any exists.
      * @todo insert some way of checking if we have checked all available combinations - otherwise infinite if filled.
      * @todo rewrite to proper searching algorithm - or maybe rewrite it so we have a map over the current "empty" squares instead?
@@ -117,16 +108,12 @@ export default class Grid {
      */
     maySnakeMoveInDirection(head: GridPosition, direction: CardinalDirectionsEnum, inSteps?: number, allowedPosition?: GridPosition): boolean{
         const newPosition = determinePositionInDirection(head, direction);
+        console.log(newPosition,this.isPositionValid(newPosition))
         if(!this.isPositionValid(newPosition))
             return false;
 
-        if(this.squareMap[newPosition.x][newPosition.y].state !== GridSquareStateEnum.Snake || (typeof allowedPosition !== 'undefined' && isPositionsIdentical(allowedPosition,newPosition)))
-            return true;
-
-        if(this.squareMap[newPosition.x][newPosition.y].getSnakeDuration === null)
-            return true;
-
-        return inSteps !== undefined && this.squareMap[newPosition.x][newPosition.y].getSnakeDuration <= inSteps;
+        console.log(this.squareMap[newPosition.x][newPosition.y].state)
+        return (this.squareMap[newPosition.x][newPosition.y].state !== GridSquareStateEnum.Snake || (typeof allowedPosition !== 'undefined' && isPositionsIdentical(allowedPosition,newPosition)))
     }
 
     /**
@@ -145,19 +132,17 @@ export default class Grid {
         if(typeof move.removed !== 'undefined')
         {
             this.setPositionState(move.removed,GridSquareStateEnum.Empty)
-            this.setPositionSnakeDuration(move.removed,null)
         }
     }
 
     /**
-     * Applies the current time (in steps) all the snakes' body parts will cover the given position
-     *
-     * @param snake
+     * Determines if a given position is on an edge
+     * @param position
      */
-    applySnakeDuration(snake: Snake): void{
-        const total = snake.getBodyParts.length;
-        snake.getBodyParts.forEach((part: GridPosition,index: number) => {
-            this.setPositionSnakeDuration(part,total - index)
-        })
+    isPositionOnEdge(position: GridPosition): boolean{
+        const max = this.size - 1;
+        return position.x === 0 || position.y === 0 ||
+            position.x === max || position.y === max
+
     }
 }

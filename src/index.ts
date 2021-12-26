@@ -53,26 +53,25 @@ function game(sketch: p5) {
         {
             tempPath = nextMove;
         }
-        /*        if(!grid.maySnakeMoveInDirection(snake.head,nextMove))
-                {
-                    alert('Dead');
-                    reset();
-                    return;
-                }
+        else
+        {
+            tempPath = [];
+            if(!grid.maySnakeMoveInDirection(snake.head,nextMove))
+            {
+                alert('Dead');
+                reset();
+                return;
+            }
 
+            const snakeMove = snake.move(nextMove)
+            grid.applySnakeMove(snakeMove)
+            // If the snake has moved into the apple
+            if(snakeMove.newHead.x === apple.getPosition.x && snakeMove.newHead.y === apple.getPosition.y){
+                snake.increaseBodyLength();
+                refreshApple();
+            }
+        }
 
-
-                const snakeMove = snake.move(nextMove)
-                grid.applySnakeMove(snakeMove)
-                grid.applySnakeDuration(snake);
-
-                // If the snake has moved into the apple
-                if(snakeMove.newHead.x === apple.getPosition.x && snakeMove.newHead.y === apple.getPosition.y){
-                    snake.increaseBodyLength();
-                    snake.appendBodyPart(apple.getPosition);
-                    refreshApple();
-                }
-        */
 
         // Draw
 
@@ -102,6 +101,16 @@ function game(sketch: p5) {
             }
         })
         sketch.stroke(0)
+
+        sketch.fill(220,20,60);
+        const boxSize = gridSquareSize/2;
+        for(let x = 0; x < grid.getSize; x++){
+            for(let y = 0; y < grid.getSize; y++){
+                if(grid.getPositionState({x: x, y: y}) === GridSquareStateEnum.Snake){
+                    sketch.rect(x*gridSquareSize+boxSize,y*gridSquareSize+boxSize,boxSize,boxSize)
+                }
+            }
+        }
 
         // Only relevant for the NaiveAlgorithm
         /*let last: AlgorithmStep;
