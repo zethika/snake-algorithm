@@ -13,6 +13,7 @@ function game(sketch: p5) {
     let algo: EdgeAdjacencyAlgorithm;
 
     let iterations: Array<number> = [];
+    let algoTimes: Array<number> = [];
     let iteration: number = 0;
     let tempPath:Array<number> = [];
 
@@ -45,8 +46,9 @@ function game(sketch: p5) {
         */
 
 
-
+        const algoStart = Date.now();
         const nextMove: CardinalDirectionsEnum|Array<number> =  algo.determineNextMoveDirection(tempPath);
+        algoTimes.push(Date.now() - algoStart);
         if(Array.isArray(nextMove))
         {
             tempPath = nextMove;
@@ -147,10 +149,12 @@ function game(sketch: p5) {
         iteration++;
         iterations.push(Date.now());
         iterations = iterations.slice(-100);
+        algoTimes = algoTimes.slice(-100);
 
         if(iteration === 10){
             iteration = 0;
-            console.log('Draw: '+((iterations[iterations.length-1] - iterations[0])/100) + 'ms')
+            const total = algoTimes.reduce((a, b) => a + b, 0)
+            console.log('Average over last 100 iterations: \n\tIteration length: '+((iterations[iterations.length-1] - iterations[0])/100) + 'ms\n\tAlgorithm: '+(total/100)+'ms')
         }
     }
 }

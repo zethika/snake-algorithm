@@ -1,6 +1,5 @@
 import {CardinalDirectionsEnum, GridPosition} from "@src/definitions";
 import {determinePositionInDirection} from "@src/helperFunctions";
-import Apple from "@src/classes/Apple";
 
 export interface SnakeMoveResponse {
     newHead: GridPosition,
@@ -15,7 +14,7 @@ export interface SnakeMoveResponse {
  * There should only ever be one snake pr. Grid
  */
 export default class {
-    constructor(private bodyParts: Array<GridPosition> = [{x:2,y:2}], private bodyLength: number = 1) {}
+    constructor(private bodyParts: Array<GridPosition> = [{x:3,y:1}], private bodyLength: number = 1) {}
 
     /**
      * Helper for getting the head of the snake.

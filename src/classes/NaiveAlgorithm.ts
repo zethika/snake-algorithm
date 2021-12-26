@@ -100,7 +100,6 @@ export default class NaiveAlgorithm {
      * @param inSteps
      */
     attemptCorrectDirection(position: GridPosition, direction: CardinalDirectionsEnum, inSteps: number): CardinalDirectionsEnum {
-        console.log(position,direction,this.grid.maySnakeMoveInDirection(position, CardinalDirectionsEnum.Down, inSteps))
         if (this.grid.maySnakeMoveInDirection(position, CardinalDirectionsEnum.Down, inSteps))
             return direction;
 

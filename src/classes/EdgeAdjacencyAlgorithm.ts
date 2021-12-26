@@ -1,7 +1,13 @@
 import Snake from "@src/classes/Snake";
 import Grid from "@src/classes/Grid";
 import Apple from "@src/classes/Apple";
-import {CardinalDirectionsEnum, CardinalDirectionsMap, GridPosition, ReverseCardinalDirection} from "@src/definitions";
+import {
+    CardinalDirectionsEnum,
+    CardinalDirectionsMap,
+    getArrayOfAllDirections,
+    GridPosition,
+    ReverseCardinalDirection
+} from "@src/definitions";
 import {
     determinePositionInDirection,
     getWeightedDirections,
@@ -83,24 +89,22 @@ export default class EdgeAdjacencyAlgorithm {
     }
 
     /**
-     * Attempts to determine a direction that allows for a hamiltonian cycle
+     * Attempts to determine a direction that allows for a hamiltonian path
      */
     determineByHamiltonian(tempPath: Array<number>): Array<number>|CardinalDirectionsEnum|null{
         this.buildAvailableGrid();
-        this.desiredPathLength = this.grid.getSize*this.grid.getSize - this.snake.getBodyLength + 1;
-        const currentWeightedDirections = getWeightedDirections(this.snake.head,this.apple.getPosition);
-        currentWeightedDirections.sort((a,b) => {
-            return (this.determineAdjacentEdgesInDirection(this.snake.head,a) > this.determineAdjacentEdgesInDirection(this.snake.head,b)) ? 1 : -1;
-        })
+        let currentWeightedDirections = getWeightedDirections(this.snake.head,this.apple.getPosition);
+        currentWeightedDirections = this.sortDirectionsByEdgesOnAdjacentPositions(currentWeightedDirections,this.snake.head);
 
         const start = tempPath.length === 0 ? 0 : tempPath[0]
         for(let i = start; i < currentWeightedDirections.length; i++){
             if(i !== tempPath[0])
-            {
-                tempPath = [i+0];
-            }
-            if(this.grid.maySnakeMoveInDirection(this.snake.head,currentWeightedDirections[i])){
-                this.path = [determinePositionInDirection(this.snake.head,currentWeightedDirections[i])];
+                tempPath = [i];
+            const start = determinePositionInDirection(this.snake.head,currentWeightedDirections[i]);
+            const constrainedGrid = this.determineEdgedViableGrid(start,{});
+            this.desiredPathLength = Object.keys(constrainedGrid).filter((key) => constrainedGrid[key] === true).length;
+            if(this.isPositionViable(start)){
+                this.path = [start];
                 this.added = {};
                 this.added[this.path[0].x+'-'+this.path[0].y] = true;
                 const hamResult = this.hamCycleUtil(currentWeightedDirections[i],tempPath, 1);
@@ -113,6 +117,39 @@ export default class EdgeAdjacencyAlgorithm {
 
         // If none have been found by here, return null for fail
         return null;
+    }
+
+    /**
+     * Recursive function which builds a coordinate grid constrained by position viability.
+     * The returned object also contains all the edges of the constrained grid (represented by a false value)
+     *
+     * @param position
+     * @param hasChecked
+     * @return An object with the keys representing a position on the grid, and the value whether it was viable
+     */
+    determineEdgedViableGrid(position: GridPosition, hasChecked: Record<string, boolean>): Record<string, boolean>{
+        const coords = position.x+'-'+position.y;
+        // If we have already checked this position, short circuit
+        if(typeof hasChecked[coords] !== 'undefined')
+            return hasChecked;
+
+        // If the position isn't valid, set as edge and short circuit
+        if(!this.isPositionViable(position))
+        {
+            hasChecked[coords] = false;
+            return hasChecked;
+        }
+
+        // Set the current position as checked
+        hasChecked[coords] = true;
+
+        // Loop through all directions and get their viable grid
+        const directions = getArrayOfAllDirections();
+        for(let i = 0; i < directions.length; i++){
+            hasChecked = this.determineEdgedViableGrid(determinePositionInDirection(position,directions[i]),hasChecked);
+        }
+
+        return hasChecked;
     }
 
     /**
@@ -140,6 +177,7 @@ export default class EdgeAdjacencyAlgorithm {
             return isPositionsAdjacent(previousPath,this.path[0]);
         }
 
+
         // Get directions weighted towards the source
         let directions = getWeightedDirections(previousPath,this.path[0])
         // Remove the direction we came from
@@ -147,6 +185,7 @@ export default class EdgeAdjacencyAlgorithm {
         // Reverse the array, we want the path to trend towards the edges away from the target
         directions.reverse();
 
+        directions = this.sortDirectionsByEdgesOnAdjacentPositions(directions,previousPath);
         // Check all directions in succession
         for (let i = typeof tempPath[tempPosition] !== 'undefined' ? tempPath[tempPosition] : 0 ; i < 3; i++) {
             // Get the position with the new direction
@@ -188,12 +227,30 @@ export default class EdgeAdjacencyAlgorithm {
     }
 
     /**
+     * Sorts an array of directions, based on the number of edges adjacent to a neighbor of the source in the single direction
+     * @param directions
+     * @param source
+     */
+    sortDirectionsByEdgesOnAdjacentPositions(directions: Array<CardinalDirectionsEnum>, source: GridPosition){
+        directions.sort((a,b) => {
+            const aEdges = this.determineAdjacentEdgesInDirection(source,a);
+            const bEdges = this.determineAdjacentEdgesInDirection(source,b);
+            if(aEdges === bEdges) return 0;
+            return (aEdges < bEdges) ? 1 : -1;
+        })
+        return directions;
+    }
+
+    /**
      * Determines the number of edges present on a position in a given direction from the given position
      */
     determineAdjacentEdgesInDirection(position: GridPosition, direction: CardinalDirectionsEnum): number{
         const newPosition = determinePositionInDirection(position,direction);
+        if(!this.isPositionViable(newPosition))
+            return 0;
+
         let edges = 4;
-        const directions = [CardinalDirectionsEnum.Right, CardinalDirectionsEnum.Left, CardinalDirectionsEnum.Down, CardinalDirectionsEnum.Up];
+        const directions = getArrayOfAllDirections();
         for(let i = 0; i < directions.length; i++){
             if(this.isPositionViable(determinePositionInDirection(newPosition,directions[i]))){
                 edges--;

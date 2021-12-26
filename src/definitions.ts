@@ -28,6 +28,13 @@ export enum CardinalDirectionsEnum {
 }
 
 /**
+ * Helper functions for getting the directions in an array format
+ */
+export function getArrayOfAllDirections():Array<CardinalDirectionsEnum>{
+    return [CardinalDirectionsEnum.Up, CardinalDirectionsEnum.Down, CardinalDirectionsEnum.Left, CardinalDirectionsEnum.Right];
+}
+
+/**
  * An interface allowing for maps of cardinal directions of a given type
  */
 export interface CardinalDirectionsMap<T> {
