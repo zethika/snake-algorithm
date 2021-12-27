@@ -1,9 +1,8 @@
 import * as p5 from "p5"
 import Snake from "@src/classes/Snake";
-import Grid from "@src/classes/Grid";
+import Grid, {GridSquareStateEnum} from "@src/classes/Grid";
 import {CardinalDirectionsEnum, GridPosition, gridSquareSize, gridSquaresPrAxis} from "@src/definitions";
 import Apple from "@src/classes/Apple";
-import {GridSquareStateEnum} from "@src/classes/GridSquare";
 import EdgeAdjacencyAlgorithm from "@src/classes/EdgeAdjacencyAlgorithm";
 
 function game(sketch: p5) {
@@ -101,16 +100,6 @@ function game(sketch: p5) {
             }
         })
         sketch.stroke(0)
-
-        sketch.fill(220,20,60);
-        const boxSize = gridSquareSize/2;
-        for(let x = 0; x < grid.getSize; x++){
-            for(let y = 0; y < grid.getSize; y++){
-                if(grid.getPositionState({x: x, y: y}) === GridSquareStateEnum.Snake){
-                    sketch.rect(x*gridSquareSize+boxSize,y*gridSquareSize+boxSize,boxSize,boxSize)
-                }
-            }
-        }
 
         // Only relevant for the NaiveAlgorithm
         /*let last: AlgorithmStep;

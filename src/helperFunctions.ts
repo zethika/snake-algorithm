@@ -1,4 +1,4 @@
-import {CardinalDirectionsEnum, GridPosition, gridSquareSize} from "@src/definitions";
+import {CardinalDirectionsEnum, getArrayOfAllDirections, GridMap, GridPosition, gridSquareSize} from "@src/definitions";
 import * as p5 from "p5";
 
 /**
@@ -24,6 +24,62 @@ export function determinePositionInDirection(position: GridPosition, direction: 
  */
 export function isPositionsIdentical(position1: GridPosition, position2: GridPosition): boolean {
     return position1.x === position2.x && position2.y === position2.y
+}
+
+/**
+ * Judges whether a given position is a valid position on a given grid
+ */
+export function isPositionValid(position: GridPosition, grid: GridMap<any>): boolean{
+    return typeof grid[position.x] !== 'undefined' && typeof grid[position.x][position.y] !== 'undefined';
+}
+
+/**
+ * Determines if the position is valid
+ * @param viableValue
+ * @param position
+ * @param grid
+ */
+export function isPositionViable(viableValue: any, position: GridPosition, grid: GridMap<any>): boolean {
+    if(!isPositionValid(position, grid))
+        return false;
+
+    return (grid[position.x][position.y] === viableValue)
+}
+
+
+/**
+ * Recursive function which builds a coordinate grid constrained by position viability.
+ * The returned object also contains all the edges of the constrained grid (represented by a false value)
+ *
+ * @param viableValue
+ * @param position
+ * @param grid
+ * @param hasChecked
+ * @return An object with the keys representing a position on the grid, and the value whether it was viable
+ */
+export function determineEdgedViableGrid(viableValue: any, position: GridPosition, grid: GridMap<any>, hasChecked: Record<string, boolean>): Record<string, boolean>{
+    const coords = position.x+'-'+position.y;
+    // If we have already checked this position, short circuit
+    if(typeof hasChecked[coords] !== 'undefined')
+        return hasChecked;
+
+    // If the position isn't valid, set as edge and short circuit
+    if(!isPositionViable(viableValue,position,grid))
+    {
+        hasChecked[coords] = false;
+        return hasChecked;
+    }
+
+    // Set the current position as checked
+    hasChecked[coords] = true;
+
+    // Loop through all directions and get their viable grid
+    const directions = getArrayOfAllDirections();
+    for(let i = 0; i < directions.length; i++){
+        hasChecked = determineEdgedViableGrid(viableValue,determinePositionInDirection(position,directions[i]),grid,hasChecked);
+    }
+
+    return hasChecked;
 }
 
 /**

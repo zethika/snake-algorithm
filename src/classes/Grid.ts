@@ -1,7 +1,16 @@
-import GridSquare, {GridSquareStateEnum} from "@src/classes/GridSquare";
 import Snake, {SnakeMoveResponse} from "@src/classes/Snake";
-import {CardinalDirectionsEnum, CardinalDirectionsMap, GridPosition} from "@src/definitions";
-import {determinePositionInDirection, isPositionsIdentical} from "@src/helperFunctions";
+import {CardinalDirectionsEnum, CardinalDirectionsMap, GridMap, GridPosition} from "@src/definitions";
+import {determinePositionInDirection, isPositionsIdentical, isPositionValid} from "@src/helperFunctions";
+
+/**
+ * The possible states of a single grid square
+ */
+export enum GridSquareStateEnum {
+    Empty,
+    Snake,
+    Apple
+}
+
 
 /**
  * The games' Grid entity
@@ -12,7 +21,7 @@ export default class Grid {
      * Multidimensional object of the grids' current state.
      * @private
      */
-    public squareMap: Record<number, Record<number, GridSquare>>
+    public squareMap: GridMap<GridSquareStateEnum>
 
     /**
      * @param size The size of the grid, in squares, on both axis.
@@ -23,7 +32,7 @@ export default class Grid {
         for(let x = 0; x < size; x++){
             this.squareMap[x] = []
             for(let y = 0; y < size; y++){
-                this.squareMap[x][y] = new GridSquare({x: x, y: y})
+                this.squareMap[x][y] = GridSquareStateEnum.Empty
             }
         }
         initialSnake.getBodyParts.forEach((part:GridPosition) => {
@@ -59,7 +68,7 @@ export default class Grid {
      */
     getStateOfAdjacentSquareInDirection(position: GridPosition, direction: CardinalDirectionsEnum): GridSquareStateEnum|null{
         const newPosition: GridPosition = determinePositionInDirection(position,direction);
-        return this.isPositionValid(newPosition) ? this.getPositionState(newPosition) : null
+        return isPositionValid(newPosition,this.squareMap) ? this.getPositionState(newPosition) : null
     }
 
     /**
@@ -67,7 +76,7 @@ export default class Grid {
      * @param position
      */
     getPositionState(position: GridPosition): GridSquareStateEnum{
-        return this.squareMap[position.x][position.y].state
+        return this.squareMap[position.x][position.y]
     }
 
     /**
@@ -76,7 +85,7 @@ export default class Grid {
      * @param state
      */
     setPositionState(position: GridPosition, state: GridSquareStateEnum){
-        this.squareMap[position.x][position.y].state = state
+        this.squareMap[position.x][position.y] = state
     }
 
     /**
@@ -85,14 +94,14 @@ export default class Grid {
      * @todo rewrite to proper searching algorithm - or maybe rewrite it so we have a map over the current "empty" squares instead?
      */
     findRandomEmptyGridPosition(): GridPosition{
-        let square: GridSquare = undefined;
-        while(typeof square === 'undefined'){
+        let position: GridPosition = undefined;
+        while(typeof position === 'undefined'){
             const x = Math.floor(Math.random() * this.size);
             const y = Math.floor(Math.random() * this.size);
-            if(this.squareMap[x][y].state === GridSquareStateEnum.Empty)
-                square = this.squareMap[x][y];
+            if(this.squareMap[x][y] === GridSquareStateEnum.Empty)
+                position = {x:x,y:y};
         }
-        return square.getPosition
+        return position
     }
 
     /**
@@ -108,19 +117,10 @@ export default class Grid {
      */
     maySnakeMoveInDirection(head: GridPosition, direction: CardinalDirectionsEnum, inSteps?: number, allowedPosition?: GridPosition): boolean{
         const newPosition = determinePositionInDirection(head, direction);
-        console.log(newPosition,this.isPositionValid(newPosition))
-        if(!this.isPositionValid(newPosition))
+        if(!isPositionValid(newPosition,this.squareMap))
             return false;
 
-        console.log(this.squareMap[newPosition.x][newPosition.y].state)
-        return (this.squareMap[newPosition.x][newPosition.y].state !== GridSquareStateEnum.Snake || (typeof allowedPosition !== 'undefined' && isPositionsIdentical(allowedPosition,newPosition)))
-    }
-
-    /**
-     * Judges whether a given position is a valid position on the grid
-     */
-    isPositionValid(position: GridPosition): boolean{
-        return typeof this.squareMap[position.x] !== 'undefined' && typeof this.squareMap[position.x][position.y] !== 'undefined';
+        return (this.squareMap[newPosition.x][newPosition.y] !== GridSquareStateEnum.Snake || (typeof allowedPosition !== 'undefined' && isPositionsIdentical(allowedPosition,newPosition)))
     }
 
     /**

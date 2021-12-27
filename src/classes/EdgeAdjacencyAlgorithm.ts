@@ -1,20 +1,20 @@
 import Snake from "@src/classes/Snake";
-import Grid from "@src/classes/Grid";
+import Grid, {GridSquareStateEnum} from "@src/classes/Grid";
 import Apple from "@src/classes/Apple";
 import {
     CardinalDirectionsEnum,
     CardinalDirectionsMap,
-    getArrayOfAllDirections,
+    getArrayOfAllDirections, GridMap,
     GridPosition,
     ReverseCardinalDirection
 } from "@src/definitions";
 import {
+    determineEdgedViableGrid,
     determinePositionInDirection,
     getWeightedDirections,
     isPositionsAdjacent,
-    isPositionsIdentical
+    isPositionsIdentical, isPositionValid, isPositionViable
 } from "@src/helperFunctions";
-import {GridSquareStateEnum} from "@src/classes/GridSquare";
 
 /**
  * The algorithm class
@@ -40,7 +40,7 @@ export default class EdgeAdjacencyAlgorithm {
      * This is then mutated while path is created to help simplify calculations and logical expressions
      * @private
      */
-    private availableGrid: Record<number,Record<number, 0|1>> = {};
+    private availableGrid: GridMap<0|1> = {};
 
     constructor(private snake: Snake, private grid: Grid, private apple?: Apple) {}
 
@@ -60,17 +60,19 @@ export default class EdgeAdjacencyAlgorithm {
      * Gets the next move direction the Snake should take
      */
     determineNextMoveDirection(tempPath: Array<number>): CardinalDirectionsEnum|Array<number>{
-        if(this.shouldUseHamiltonian()) {
+        this.buildAvailableGrid();
+        // Is square empty, go there
+        let direction = this.getNextDirectDirection();
+        if(!this.grid.maySnakeMoveInDirection(this.snake.head,direction))
+            direction = this.attemptNaiveCollisionCorrect(direction);
+
+        if(this.shouldUseHamiltonian(direction)) {
             // Hamiltonian logic
             const hamDirection = this.determineByHamiltonian(tempPath);
             if (hamDirection !== null)
                 return hamDirection;
         }
 
-        // Is square empty, go there
-        let direction = this.getNextDirectDirection();
-        if(!this.grid.maySnakeMoveInDirection(this.snake.head,direction))
-            direction = this.attemptNaiveCollisionCorrect(direction);
 
         return direction
     }
@@ -79,19 +81,23 @@ export default class EdgeAdjacencyAlgorithm {
      * Determines if hamiltonian logic should be applied to the next step
      * Since it is a much heavier process, we should disable it when possible
      */
-    shouldUseHamiltonian(){
+    shouldUseHamiltonian(defaultDirection: CardinalDirectionsEnum){
         // Since it is impossible to kill on own body before 4 bodyparts and the regular algorithm works fine till then
         if(this.snake.getBodyLength < 4)
             return false;
 
-        return true;
+        const nextPosition = determinePositionInDirection(this.snake.head,defaultDirection);
+
+        if(this.wouldFillSplitGrid(nextPosition))
+            return true;
+
+        return false;
     }
 
     /**
      * Attempts to determine a direction that allows for a hamiltonian path
      */
     determineByHamiltonian(tempPath: Array<number>): Array<number>|CardinalDirectionsEnum|null{
-        this.buildAvailableGrid();
         let currentWeightedDirections = getWeightedDirections(this.snake.head,this.apple.getPosition);
         currentWeightedDirections = this.sortDirectionsByEdgesOnAdjacentPositions(currentWeightedDirections,this.snake.head);
 
@@ -100,9 +106,9 @@ export default class EdgeAdjacencyAlgorithm {
             if(i !== tempPath[0])
                 tempPath = [i];
             const start = determinePositionInDirection(this.snake.head,currentWeightedDirections[i]);
-            const constrainedGrid = this.determineEdgedViableGrid(start,{});
+            const constrainedGrid = determineEdgedViableGrid(1,start,this.availableGrid,{});
             this.desiredPathLength = Object.keys(constrainedGrid).filter((key) => constrainedGrid[key] === true).length;
-            if(this.isPositionViable(start)){
+            if(this.isLocalPositionViable(start)){
                 this.path = [start];
                 this.added = {};
                 this.added[this.path[0].x+'-'+this.path[0].y] = true;
@@ -116,39 +122,6 @@ export default class EdgeAdjacencyAlgorithm {
 
         // If none have been found by here, return null for fail
         return null;
-    }
-
-    /**
-     * Recursive function which builds a coordinate grid constrained by position viability.
-     * The returned object also contains all the edges of the constrained grid (represented by a false value)
-     *
-     * @param position
-     * @param hasChecked
-     * @return An object with the keys representing a position on the grid, and the value whether it was viable
-     */
-    determineEdgedViableGrid(position: GridPosition, hasChecked: Record<string, boolean>): Record<string, boolean>{
-        const coords = position.x+'-'+position.y;
-        // If we have already checked this position, short circuit
-        if(typeof hasChecked[coords] !== 'undefined')
-            return hasChecked;
-
-        // If the position isn't valid, set as edge and short circuit
-        if(!this.isPositionViable(position))
-        {
-            hasChecked[coords] = false;
-            return hasChecked;
-        }
-
-        // Set the current position as checked
-        hasChecked[coords] = true;
-
-        // Loop through all directions and get their viable grid
-        const directions = getArrayOfAllDirections();
-        for(let i = 0; i < directions.length; i++){
-            hasChecked = this.determineEdgedViableGrid(determinePositionInDirection(position,directions[i]),hasChecked);
-        }
-
-        return hasChecked;
     }
 
     /**
@@ -180,7 +153,7 @@ export default class EdgeAdjacencyAlgorithm {
         let directions = getWeightedDirections(previousPath,this.path[0])
         // Remove the direction we came from
         directions.splice(directions.indexOf(ReverseCardinalDirection[originatingDirection]),1);
-        directions = directions.filter((direction) => this.isPositionViable(determinePositionInDirection(previousPath,direction)));
+        directions = directions.filter((direction) => this.isLocalPositionViable(determinePositionInDirection(previousPath,direction)));
         // Reverse the array, we want the path to trend towards the edges away from the target
         directions.reverse();
 
@@ -241,21 +214,46 @@ export default class EdgeAdjacencyAlgorithm {
 
     /**
      * Determines if filling the given position, would result in split grids.
-     * This is judged by checking all surrounding positions, if there is precisely 2 open edges, and it isn't a corner, it would split
      * @param position
      */
-    wouldFillSplitGrid(position: GridPosition){
-        // If position is a corner, it does not make sense to describe it as "splitting the grid" as there will always only be 2 open edges.
-        if(!this.isPositionViable(position) || this.grid.isPositionOnEdge(position))
+    wouldFillSplitGrid(position: GridPosition): boolean{
+        if(!this.isLocalPositionViable(position))
             return false;
 
-        const directions = getArrayOfAllDirections();
-        let openEdges = 0;
-        for(let i = 0; i < directions.length; i++){
-            if(this.isPositionViable(determinePositionInDirection(position,directions[i])))
-                openEdges++;
+        const testGrid = this.buildPartialAvailabilityGrid(position,1);
+        let gridsBefore = [];
+
+
+        console.log(position,testGrid);
+
+        return false;
+    }
+
+    /**
+     * Builds a partial grid based on the full availability grid, filling a square surrounding the center with a given radius
+     *
+     * @param center
+     * @param radius How far from the center should be filled (ie, 1 will result in a 3x3 grid)
+     */
+    buildPartialAvailabilityGrid(center: GridPosition, radius: number): GridMap<0|1>{
+        let grid: GridMap<0|1> = {};
+        let currentX = 0;
+
+        const startX = center.x-radius
+        const startY = center.y-radius;
+        const maxX = center.x+radius;
+        const maxY = center.y+radius;
+        for(let x = startX; x <= maxX; x++){
+            let currentY = 0;
+            grid[currentX] = {};
+            for(let y = startY; y <= maxY; y++){
+                grid[currentX][currentY] = this.isLocalPositionViable({x:x,y:y}) ? 1 : 0;
+                currentY++;
+            }
+            currentX++;
         }
-        return (openEdges === 2);
+
+        return grid;
     }
 
     /**
@@ -278,13 +276,13 @@ export default class EdgeAdjacencyAlgorithm {
      */
     determineAdjacentEdgesInDirection(position: GridPosition, direction: CardinalDirectionsEnum): number{
         const newPosition = determinePositionInDirection(position,direction);
-        if(!this.isPositionViable(newPosition))
+        if(!this.isLocalPositionViable(newPosition))
             return 0;
 
         let edges = 4;
         const directions = getArrayOfAllDirections();
         for(let i = 0; i < directions.length; i++){
-            if(this.isPositionViable(determinePositionInDirection(newPosition,directions[i]))){
+            if(this.isLocalPositionViable(determinePositionInDirection(newPosition,directions[i]))){
                 edges--;
             }
         }
@@ -292,21 +290,11 @@ export default class EdgeAdjacencyAlgorithm {
     }
 
     /**
-     * Determines if the position is valid
+     * generic local helper for the isPositionViable function
      * @param position
      */
-    isPositionViable(position: GridPosition): boolean {
-        if(!this.isPositionValid(position))
-            return false;
-
-        return (this.availableGrid[position.x][position.y] === 1)
-    }
-
-    /**
-     * Judges whether a given position is a valid position on the available grid
-     */
-    isPositionValid(position: GridPosition): boolean{
-        return typeof this.availableGrid[position.x] !== 'undefined' && typeof this.availableGrid[position.x][position.y] !== 'undefined';
+    isLocalPositionViable(position: GridPosition): boolean {
+        return isPositionViable(1, position, this.availableGrid)
     }
 
     /**

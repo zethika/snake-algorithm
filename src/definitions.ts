@@ -8,6 +8,12 @@ export interface GridPosition {
 }
 
 /**
+ * The grid map type, for a map of x.y values of type T.
+ * Allows accessing the individual coordinates in a "variable[x][y]" fashion
+ */
+export type GridMap<T> = Record<number, Record<number, T>>
+
+/**
  * How large (in pixels) a single square on both axis is
  */
 export const gridSquareSize: number = 15;
