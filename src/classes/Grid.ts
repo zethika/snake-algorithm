@@ -112,10 +112,9 @@ export default class Grid {
      *
      * @param head
      * @param direction
-     * @param inSteps
      * @param allowedPosition The position of the snake head, if it should be allowed
      */
-    maySnakeMoveInDirection(head: GridPosition, direction: CardinalDirectionsEnum, inSteps?: number, allowedPosition?: GridPosition): boolean{
+    maySnakeMoveInDirection(head: GridPosition, direction: CardinalDirectionsEnum, allowedPosition?: GridPosition): boolean{
         const newPosition = determinePositionInDirection(head, direction);
         if(!isPositionValid(newPosition,this.squareMap))
             return false;

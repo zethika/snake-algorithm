@@ -1,4 +1,15 @@
 /**
+ * Controls whether the algorithm steps should be drawn one-by-one or not
+ */
+export const drawCalculations:boolean = false;
+
+/**
+ * Forces a slowdown of each step by introducing a simple counter, that counts to a number that is 10 to the power of x ("10E<x>" where x is your number)
+ * Set to 0 to disable
+ */
+export const slowdownPower:number = 0;
+
+/**
  * Interface describing a position is on the grid.
  * Values can only be positive, with the bottom left corner of the grid being 0,0
  */
@@ -16,7 +27,7 @@ export type GridMap<T> = Record<number, Record<number, T>>
 /**
  * How large (in pixels) a single square on both axis is
  */
-export const gridSquareSize: number = 15;
+export const gridSquareSize: number = 30;
 
 /**
  * The number of squares pr. axis of the grid

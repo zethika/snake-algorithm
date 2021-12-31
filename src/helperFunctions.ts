@@ -23,7 +23,7 @@ export function determinePositionInDirection(position: GridPosition, direction: 
  * @param position2
  */
 export function isPositionsIdentical(position1: GridPosition, position2: GridPosition): boolean {
-    return position1.x === position2.x && position2.y === position2.y
+    return position1.x === position2.x && position1.y === position2.y
 }
 
 /**
@@ -57,21 +57,20 @@ export function isPositionViable(viableValue: any, position: GridPosition, grid:
  * @param hasChecked
  * @return An object with the keys representing a position on the grid, and the value whether it was viable
  */
-export function determineEdgedViableGrid(viableValue: any, position: GridPosition, grid: GridMap<any>, hasChecked: Record<string, boolean>): Record<string, boolean>{
-    const coords = position.x+'-'+position.y;
+export function determineEdgedViableGrid(viableValue: any, position: GridPosition, grid: GridMap<any>, hasChecked: GridMap<boolean>): GridMap<boolean>{
     // If we have already checked this position, short circuit
-    if(typeof hasChecked[coords] !== 'undefined')
+    if(isPositionValid(position,hasChecked))
         return hasChecked;
 
     // If the position isn't valid, set as edge and short circuit
     if(!isPositionViable(viableValue,position,grid))
     {
-        hasChecked[coords] = false;
+        hasChecked = setGridPositionValue(position,false,hasChecked)
         return hasChecked;
     }
 
     // Set the current position as checked
-    hasChecked[coords] = true;
+    hasChecked = setGridPositionValue(position,true,hasChecked)
 
     // Loop through all directions and get their viable grid
     const directions = getArrayOfAllDirections();
@@ -80,6 +79,69 @@ export function determineEdgedViableGrid(viableValue: any, position: GridPositio
     }
 
     return hasChecked;
+}
+
+/**
+ * Counts the number of available squares in an edged grid
+ * @param grid
+ */
+export function countAvailableInEdgedGrid(grid: GridMap<boolean>): number{
+    let count = 0;
+    Object.entries(grid).forEach(xRecord => {
+        Object.entries(xRecord[1]).forEach(yRecord => {
+            if(yRecord[1] === true)
+                count++;
+        })
+    })
+
+    return count
+}
+
+/**
+ * Sets a value on a grid
+ */
+export function setGridPositionValue(position: GridPosition, value: any, grid: GridMap<any>){
+    if(typeof grid[position.x] === 'undefined'){
+        grid[position.x] = {}
+    }
+    grid[position.x][position.y] = value;
+
+    return grid;
+}
+
+/**
+ * Gets all separately edged grids present in a given grid
+ *
+ * @param viableValue
+ * @param grid
+ */
+export function getEdgedViableGridsInGrid(viableValue: any, grid: GridMap<any>): Array<GridMap<boolean>>{
+    let grids: Array<GridMap<boolean>> = [];
+    let hasCheckedGlobal: Record<string, boolean> = {}
+
+    // Loops over each position on the grid
+    Object.entries(grid).forEach((xEntry) => {
+        Object.entries(xEntry[1]).forEach((yEntry) => {
+            const position: GridPosition = {x: Number(xEntry[0]), y: Number(yEntry[0])}
+            // If the current position is viable to begin with, and hasn't already been checked once
+            if(yEntry[1] === viableValue && typeof hasCheckedGlobal[getPositionCoordinatesAsString(position)] === 'undefined'){
+
+                // Determine the edged viable grid from the given position
+                const edgedGrid = determineEdgedViableGrid(viableValue,position,grid,{})
+
+                // Assign the known state to the global has checked, to prevent duplicate checks
+                Object.entries(edgedGrid).forEach((xEntry) => {
+                    const xValue = Number(xEntry[0]);
+                    Object.entries(xEntry[1]).forEach(yEntry => {
+                        hasCheckedGlobal[getPositionCoordinatesAsString({x:xValue,y:Number(yEntry[0])})] = true;
+                    })
+                })
+                // Save the grid - each edged grid will only be looped over once, on the first square encountered in it, due to saving the global state.
+                grids.push(edgedGrid);
+            }
+        })
+    })
+    return grids;
 }
 
 /**
@@ -108,6 +170,19 @@ export function getWeightedDirections(source: GridPosition, target: GridPosition
             [CardinalDirectionsEnum.Up, CardinalDirectionsEnum.Left, CardinalDirectionsEnum.Right, CardinalDirectionsEnum.Down]
     }
     return directions;
+}
+
+/**
+ * Gets the next direction that would move most towards the target position from the source position
+ */
+export function getNextDirectDirection(source: GridPosition, target: GridPosition): CardinalDirectionsEnum{
+    // If further from the x coordinate than the y coordinate, go left or right
+    if(Math.abs(source.x - target.x) > Math.abs(source.y - target.y) || source.y === target.y){
+        return source.x < target.x ? CardinalDirectionsEnum.Right : CardinalDirectionsEnum.Left;
+        // otherwise, go up or down
+    } else {
+        return source.y < target.y ? CardinalDirectionsEnum.Down : CardinalDirectionsEnum.Up;
+    }
 }
 
 /**
@@ -151,3 +226,58 @@ export function sketchDirectionalTriangleInPosition(sketch: p5, position: GridPo
             break;
     }
 }
+
+/**
+ * Returns the grid coordinates as a string
+ *
+ * @param position
+ */
+export function getPositionCoordinatesAsString(position: GridPosition){
+    return position.x+'-'+position.y;
+}
+
+/**
+ * Returns a GridPosition object representing the first found position containing the viable value in a given grid,
+ * or false if none could be found.
+ * @param grid
+ * @param viableValue
+ */
+export function getFirstViablePositionInGrid(viableValue: any,grid: GridMap<any>): GridPosition|false{
+    let position: GridPosition|false = false;
+
+    const xKeys = Object.keys(grid);
+    xLoop: for(let i = 0; i < xKeys.length; i++){
+        const x = Number(xKeys[i]);
+        const yKeys = Object.keys(grid[x]);
+        for(let n = 0; n < yKeys.length; n++){
+            const y = Number(yKeys[n]);
+            if(grid[x][y] === viableValue){
+                position = {x:x,y:y};
+                break xLoop;
+            }
+        }
+    }
+
+    return position;
+}
+
+/**
+ * Determines which position a given element had, given an originally known position, and a position for the same element after a mutation.
+ * If an element originally was 9,10, and after updated was 1,1 (for example for a smaller edged grid analysis),
+ * Another element that in the updated grid was 0,0 will then be converted to 8,9
+ *
+ * @param subjectPosition The position to return a mutated position for
+ * @param originalPosition
+ * @param relativePosition
+ */
+export function mutatePositionByRelativePosition(subjectPosition: GridPosition, originalPosition: GridPosition, relativePosition: GridPosition): GridPosition
+{
+    const xDiff = subjectPosition.x - relativePosition.x;
+    const yDiff = subjectPosition.y - relativePosition.y;
+
+    return {
+        x: originalPosition.x + xDiff,
+        y: originalPosition.y + yDiff
+    }
+}
+
