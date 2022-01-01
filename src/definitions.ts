@@ -1,7 +1,7 @@
 /**
  * Controls whether the algorithm steps should be drawn one-by-one or not
  */
-export const drawCalculations:boolean = true;
+export const drawCalculations:boolean = false;
 
 /**
  * Forces a slowdown of each step by introducing a simple counter, that counts to a number that is 10 to the power of x ("10E<x>" where x is your number)
@@ -69,4 +69,12 @@ export const ReverseCardinalDirection = {
     1: 0,
     2: 3,
     3: 2
+}
+
+/**
+ * Interface representing an object describing the state of a single step
+ */
+export interface StepState {
+    snakeBodyParts: Array<GridPosition>,
+    apple: GridPosition
 }
