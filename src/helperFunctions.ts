@@ -281,3 +281,38 @@ export function mutatePositionByRelativePosition(subjectPosition: GridPosition, 
     }
 }
 
+/**
+ * Combines an object serializer and hash creator function to create a simple checksum-like object simplifier.
+ *
+ * @param object
+ */
+export function createHashFromObject(object: Record<string, any>):string{
+    return createHash(serializePlainObject(object));
+}
+
+/**
+ * Serializes a simple object into a string
+ * @param object
+ */
+export function serializePlainObject (object: Record<string, any>): string {
+    return Object.keys(object).sort().map(key => key+':'+serializePlainObject(object[key])).join('-')
+}
+
+/**
+ * Creates a hash from a given string
+ * @source https://stackoverflow.com/a/52171480
+ * @param str
+ * @param seed
+ */
+export function createHash(str: string, seed = 0): string {
+    let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+    for (let i = 0, ch; i < str.length; i++) {
+        ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
+    // @ts-ignore
+    return 4294967296 * (2097151 & h2) + (h1>>>0);
+};

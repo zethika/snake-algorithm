@@ -18,7 +18,7 @@ import {
     isPositionValid,
     isPositionViable,
     getFirstViablePositionInGrid,
-    mutatePositionByRelativePosition, getNextDirectDirection, countAvailableInEdgedGrid
+    mutatePositionByRelativePosition, getNextDirectDirection, countAvailableInEdgedGrid, createHashFromObject
 } from "@src/helperFunctions";
 
 /**
@@ -39,6 +39,17 @@ export default class EdgeAdjacencyAlgorithm {
      * @private
      */
     private added: Record<string,boolean> = {};
+
+    /**
+     * Is used to hold checksum-like values for previously checked grids.
+     * This is then used, such that if the same grid structure presents itself the pathfinder can short-circuit earlier.
+     * This is different from the "added" property in the sense that it is safe across different recursion trees, while added is only usable in the same recursion instance.
+     *
+     * @todo does this mean that "added" is irrelevant, with this one?
+     *
+     * @private
+     */
+    private gridsChecked: Record<string,boolean> = {};
 
     /**
      * A grid the algorithm can use, of 1's and 0's based on the availability of the current grid.
@@ -88,7 +99,6 @@ export default class EdgeAdjacencyAlgorithm {
         if(this.shouldUseHamiltonian(direction)) {
             // Hamiltonian logic
             const hamDirection = this.determineByHamiltonian(tempPath);
-            console.log(hamDirection)
             if (hamDirection !== null)
                 return hamDirection;
         }
@@ -135,6 +145,7 @@ export default class EdgeAdjacencyAlgorithm {
         let currentWeightedDirections = getWeightedDirections(this.snake.head,this.apple.getPosition);
         currentWeightedDirections = this.weightDirectionsByLocalState(currentWeightedDirections,this.snake.head);
 
+        this.gridsChecked = {};
         const start = tempPath.length === 0 ? 0 : tempPath[0]
         for(let i = start; i < currentWeightedDirections.length; i++){
             if(i !== tempPath[0])
@@ -181,6 +192,17 @@ export default class EdgeAdjacencyAlgorithm {
     private hamCycleUtil(originatingDirection: CardinalDirectionsEnum,tempPath: Array<number>, tempPosition: number): boolean|Array<number> {
         const previousPath: GridPosition = this.path[this.path.length - 1];
 
+        // If we have already checked the grid present from this position, short circuit as early as possible
+        const edgedGridHash = createHashFromObject(determineEdgedViableGrid(1,previousPath, this.availableGrid,{}));
+        if(typeof this.gridsChecked[edgedGridHash] !== 'undefined')
+        {
+            console.log('short circuit')
+            return false;
+
+        }
+
+        this.gridsChecked[edgedGridHash] = true;
+
         // If we are at the last expected position of the cycle, or the calculated path is longer than the snake
         if (this.path.length === this.desiredPathLength || this.path.length > this.snake.getBodyLength+1) {
             return true;
@@ -201,6 +223,7 @@ export default class EdgeAdjacencyAlgorithm {
             // Get the position with the new direction
             const newPosition = determinePositionInDirection(previousPath,directions[i]);
             const coords = getPositionCoordinatesAsString(newPosition);
+
             // If we have not already checked the position once
             if(isPositionViable(1,newPosition,this.availableGrid) && typeof this.added[coords] === 'undefined'){
                 this.addPosition(newPosition,coords)
@@ -402,8 +425,6 @@ export default class EdgeAdjacencyAlgorithm {
             // All else being equal, stick to edges as much as possible
             if(aEdges === bEdges) return 0;
             return (aEdges < bEdges) ? 1 : -1;
-
-
 
         })
 

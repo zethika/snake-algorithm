@@ -1,7 +1,7 @@
 /**
  * Controls whether the algorithm steps should be drawn one-by-one or not
  */
-export const drawCalculations:boolean = false;
+export const drawCalculations:boolean = true;
 
 /**
  * Forces a slowdown of each step by introducing a simple counter, that counts to a number that is 10 to the power of x ("10E<x>" where x is your number)

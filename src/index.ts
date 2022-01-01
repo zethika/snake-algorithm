@@ -22,13 +22,23 @@ function game(sketch: p5) {
     let iteration: number = 0;
     let tempPath:Array<number> = [];
 
+    let isStopped: boolean = false;
+    let stopButton;
+
     sketch.setup = () => {
+        // Environment setup
         sketch.createCanvas(gridSquareSize*gridSquaresPrAxis, gridSquareSize*gridSquaresPrAxis);
+        stopButton = sketch.createButton('Start/Stop')
+        stopButton.position(8, gridSquareSize*gridSquaresPrAxis+10);
+        stopButton.mousePressed(startStop);
+
+        // Game setup
         snake = new Snake();
-        //snake = new Snake([{"x":2,"y":13},{"x":1,"y":13},{"x":0,"y":13},{"x":0,"y":12},{"x":1,"y":12},{"x":2,"y":12},{"x":3,"y":12},{"x":4,"y":12},{"x":5,"y":12},{"x":5,"y":13},{"x":4,"y":13},{"x":4,"y":14},{"x":3,"y":14},{"x":3,"y":15},{"x":2,"y":15},{"x":2,"y":16},{"x":1,"y":16},{"x":1,"y":17},{"x":1,"y":18},{"x":2,"y":18},{"x":2,"y":17},{"x":3,"y":17},{"x":3,"y":16},{"x":4,"y":16},{"x":4,"y":15},{"x":5,"y":15}],26)
+        //snake = new Snake([{"x":0,"y":16},{"x":1,"y":16},{"x":1,"y":15},{"x":2,"y":15},{"x":2,"y":14},{"x":3,"y":14},{"x":3,"y":13},{"x":4,"y":13},{"x":5,"y":13},{"x":6,"y":13},{"x":7,"y":13},{"x":8,"y":13},{"x":9,"y":13},{"x":9,"y":14},{"x":10,"y":14},{"x":10,"y":15},{"x":11,"y":15},{"x":11,"y":16},{"x":12,"y":16},{"x":12,"y":17},{"x":12,"y":18},{"x":13,"y":18},{"x":14,"y":18},{"x":15,"y":18},{"x":16,"y":18},{"x":17,"y":18},{"x":18,"y":18},{"x":19,"y":18},{"x":19,"y":17},{"x":19,"y":16},{"x":19,"y":15},{"x":19,"y":14},{"x":19,"y":13},{"x":18,"y":13},{"x":17,"y":13},{"x":16,"y":13},{"x":15,"y":13},{"x":15,"y":12},{"x":14,"y":12},{"x":13,"y":12},{"x":13,"y":11},{"x":12,"y":11},{"x":12,"y":10},{"x":13,"y":10},{"x":14,"y":10},{"x":15,"y":10},{"x":15,"y":9},{"x":14,"y":9},{"x":14,"y":8},{"x":13,"y":8},{"x":13,"y":9},{"x":12,"y":9},{"x":12,"y":8},{"x":11,"y":8},{"x":11,"y":7}],55)
         grid = new Grid(gridSquaresPrAxis,snake);
         algo = new EdgeAdjacencyAlgorithm(snake,grid,undefined,drawCalculations);
         refreshApple();
+
     };
 
     sketch.draw = () => {
@@ -36,35 +46,31 @@ function game(sketch: p5) {
         sketch.background(51);
 
         // Update states
-        const algoStart = Date.now();
-        const nextMove: CardinalDirectionsEnum|Array<number> =  algo.determineNextMoveDirection(tempPath);
-        algoTimes.push(Date.now() - algoStart);
-        if(Array.isArray(nextMove))
-        {
-            tempPath = nextMove;
-        }
-        else
-        {
-            console.log('Moving in direction: '+nextMove)
-            tempPath = [];
-            if(!grid.maySnakeMoveInDirection(snake.head,nextMove))
-            {
-                console.log(JSON.stringify(snake.getBodyParts))
-                console.log(snake.getBodyLength())
-                alert('Dead');
-                reset();
-                return;
-            }
+        if(!isStopped) {
+            const algoStart = Date.now();
+            const nextMove: CardinalDirectionsEnum | Array<number> = algo.determineNextMoveDirection(tempPath);
+            algoTimes.push(Date.now() - algoStart);
+            if (Array.isArray(nextMove)) {
+                tempPath = nextMove;
+            } else {
+                tempPath = [];
+                if (!grid.maySnakeMoveInDirection(snake.head, nextMove)) {
+                    console.log(JSON.stringify(snake.getBodyParts))
+                    console.log(snake.getBodyLength)
+                    alert('Dead');
+                    reset();
+                    return;
+                }
 
-            const snakeMove = snake.move(nextMove)
-            grid.applySnakeMove(snakeMove)
-            // If the snake has moved into the apple
-            if(snakeMove.newHead.x === apple.getPosition.x && snakeMove.newHead.y === apple.getPosition.y){
-                snake.increaseBodyLength();
-                refreshApple();
+                const snakeMove = snake.move(nextMove)
+                grid.applySnakeMove(snakeMove)
+                // If the snake has moved into the apple
+                if (snakeMove.newHead.x === apple.getPosition.x && snakeMove.newHead.y === apple.getPosition.y) {
+                    snake.increaseBodyLength();
+                    refreshApple();
+                }
             }
         }
-
 
         // Draw
 
@@ -175,6 +181,13 @@ function game(sketch: p5) {
             const total = algoTimes.reduce((a, b) => a + b, 0)
             console.log('Average over last 100 iterations: \n\tIteration length: '+((iterations[iterations.length-1] - iterations[0])/100) + 'ms\n\tAlgorithm: '+(total/100)+'ms')
         }
+    }
+
+    /**
+     * Starts and stops the simulation
+     */
+    const startStop = () => {
+        isStopped = !isStopped;
     }
 }
 
