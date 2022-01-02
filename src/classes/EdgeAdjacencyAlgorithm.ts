@@ -18,8 +18,21 @@ import {
     isPositionValid,
     isPositionViable,
     getFirstViablePositionInGrid,
-    mutatePositionByRelativePosition, getNextDirectDirection, countAvailableInEdgedGrid, createHashFromObject
+    mutatePositionByRelativePosition,
+    getNextDirectDirection,
+    countAvailableInEdgedGrid,
+    createHashFromObject,
+    setGridPositionValue, determineViableDirectionsWithAtLeastXSquares
 } from "@src/helperFunctions";
+
+interface sortingPriorityDataset {
+    isApplePosition: boolean
+    wouldFillSplitGrid: boolean
+    availableSquares: number
+    hasSpaceForSnake: boolean
+    positionShareGridWithApple: boolean
+    edgeCount: number
+}
 
 /**
  * The algorithm class
@@ -58,6 +71,20 @@ export default class EdgeAdjacencyAlgorithm {
      */
     private availableGrid: GridMap<0|1> = {};
 
+    /**
+     * Whether the algorithm should force the use of hamiltonian, and simply use the longest possible found path
+     * This is used once the snake gets longer, and the probability of there not being an actual route to the target increases - it should simply loiter at this point
+     *
+     * @private
+     */
+    private useLongestPath: boolean;
+
+    /**
+     * Stores the temporary longest found path
+     * @private
+     */
+    private longestPath: Array<GridPosition> = [];
+
     constructor(private snake: Snake, private grid: Grid, private apple?: Apple, private returnPartials?: boolean) {
         this.returnPartials = typeof returnPartials !== 'undefined' ? returnPartials : false
     }
@@ -91,18 +118,31 @@ export default class EdgeAdjacencyAlgorithm {
      */
     determineNextMoveDirection(tempPath: Array<number>): CardinalDirectionsEnum|Array<number>{
         this.buildAvailableGrid();
+        // Determine which directions the naive algorithm may make use of
+        const allowedNaiveDirections = determineViableDirectionsWithAtLeastXSquares(this.snake.getBodyLength,1,this.snake.head,this.availableGrid);
+
         // Is square empty, go there
         let direction = getNextDirectDirection(this.snake.head,this.apple.getPosition);
         if(!this.grid.maySnakeMoveInDirection(this.snake.head,direction))
-            direction = this.attemptNaiveCollisionCorrect(direction);
+            direction = this.attemptNaiveCollisionCorrect(direction,allowedNaiveDirections);
 
-        if(this.shouldUseHamiltonian(direction)) {
-            // Hamiltonian logic
+        this.useLongestPath = allowedNaiveDirections.indexOf(direction) === -1;
+        this.longestPath = [];
+
+        // If there is no accepted naive directions, or the found isn't among them, or it must use hamil, use hamil
+        if(this.useLongestPath || this.shouldUseHamiltonian(direction)) {
             const hamDirection = this.determineByHamiltonian(tempPath);
             if (hamDirection !== null)
                 return hamDirection;
+
+            // Fallback to the longest path if it is enabled
+            if(this.useLongestPath && this.longestPath.length > 0) {
+                return getNextDirectDirection(this.snake.head,this.longestPath[0])
+            }
+
         }
 
+        // To prevent infinite loops, default back to using the originally found direction if nothing else - even if that results in a death
         return direction
     }
 
@@ -116,7 +156,6 @@ export default class EdgeAdjacencyAlgorithm {
             return false;
 
         const nextPosition = determinePositionInDirection(this.snake.head,defaultDirection);
-
         if(this.positionShareGridWithApple(nextPosition) === false){
             return true;
         }
@@ -143,8 +182,17 @@ export default class EdgeAdjacencyAlgorithm {
      */
     private determineByHamiltonian(tempPath: Array<number>): Array<number>|CardinalDirectionsEnum|null{
         let currentWeightedDirections = getWeightedDirections(this.snake.head,this.apple.getPosition);
+
+        // Filter non-viable directions
+        currentWeightedDirections = currentWeightedDirections.filter((direction) => {
+            const start = determinePositionInDirection(this.snake.head,direction);
+            return this.isLocalPositionViable(start);
+        })
+
+        // Weigh the viable directions based on the state of the availability grid
         currentWeightedDirections = this.weightDirectionsByLocalState(currentWeightedDirections,this.snake.head);
 
+        // Check each direction
         this.gridsChecked = {};
         const start = tempPath.length === 0 ? 0 : tempPath[0]
         for(let i = start; i < currentWeightedDirections.length; i++){
@@ -192,19 +240,19 @@ export default class EdgeAdjacencyAlgorithm {
     private hamCycleUtil(originatingDirection: CardinalDirectionsEnum,tempPath: Array<number>, tempPosition: number): boolean|Array<number> {
         const previousPath: GridPosition = this.path[this.path.length - 1];
 
+        // If we need to capture the longest path, save each path stepped into if it is longer than the last saved
+        if(this.useLongestPath && this.path.length > this.longestPath.length)
+            this.longestPath = [...this.path];
+
         // If we have already checked the grid present from this position, short circuit as early as possible
         const edgedGridHash = createHashFromObject(determineEdgedViableGrid(1,previousPath, this.availableGrid,{}));
         if(typeof this.gridsChecked[edgedGridHash] !== 'undefined')
-        {
-            console.log('short circuit')
             return false;
-
-        }
 
         this.gridsChecked[edgedGridHash] = true;
 
         // If we are at the last expected position of the cycle, or the calculated path is longer than the snake
-        if (this.path.length === this.desiredPathLength || this.path.length > this.snake.getBodyLength+1) {
+        if ((this.useLongestPath === false && this.path.length === this.desiredPathLength) || this.path.length > this.snake.getBodyLength+1) {
             return true;
         }
 
@@ -282,9 +330,12 @@ export default class EdgeAdjacencyAlgorithm {
 
     /**
      * Determines if filling the given position, would result in split grids.
+     * Optionally allows splits if at least one grid are at least a certain size
+     *
      * @param position
+     * @param minNewGridSize
      */
-    private wouldFillSplitGrid(position: GridPosition): boolean {
+    private wouldFillSplitGrid(position: GridPosition, minNewGridSize?: number): boolean {
         // If position isn't viable to begin with, it can't split
         if (!this.isLocalPositionViable(position))
             return false;
@@ -325,6 +376,12 @@ export default class EdgeAdjacencyAlgorithm {
                 // Match all found grids after split, and check if the first viable position is present in the starting grid.
                 } else {
                     if(isPositionValid(mutatedViable,firstFoundGrid) === false || firstFoundGrid[mutatedViable.x][mutatedViable.y] === false){
+                        if(typeof minNewGridSize !== 'undefined')
+                        {
+                            const newGrid = determineEdgedViableGrid(1,mutatedViable,copy,{})
+                            if(countAvailableInEdgedGrid(firstFoundGrid) >= minNewGridSize || countAvailableInEdgedGrid(newGrid) >= minNewGridSize)
+                                continue;
+                        }
                         return true;
                     }
                 }
@@ -386,45 +443,49 @@ export default class EdgeAdjacencyAlgorithm {
      */
     private weightDirectionsByLocalState(directions: Array<CardinalDirectionsEnum>, source: GridPosition){
 
+        // Yuck, this should be optimized - This is done for -every- step of the calculation, for every direction.
+        // A ton of steps involved here.
+        // @todo figure out a better way to apply the various priorities
+
+        // Precalculate values so the same direction can't be calculated twice
+        const dataset: Record<number, sortingPriorityDataset> = {};
+        directions.forEach((direction) => {
+            const position = determinePositionInDirection(source,direction);
+            const count = countAvailableInEdgedGrid(determineEdgedViableGrid(1,position,this.availableGrid,{}));
+            dataset[direction] = {
+                isApplePosition: isPositionsIdentical(position,this.apple.getPosition),
+                wouldFillSplitGrid: this.wouldFillSplitGrid(position, this.snake.getBodyLength),
+                availableSquares: count,
+                hasSpaceForSnake: count > this.snake.getBodyLength,
+                positionShareGridWithApple: this.positionShareGridWithApple(position),
+                edgeCount: this.determineAdjacentEdgesOnPosition(position)
+            }
+        })
+
         directions.sort((a,b) => {
-            const aPosition = determinePositionInDirection(source,a);
-            const bPosition = determinePositionInDirection(source,b);
-
-            // If the apple is adjacent to the snake, attempt that direction first always
-            const aApple = isPositionsIdentical(aPosition,this.apple.getPosition)
-            const bApple = isPositionsIdentical(bPosition,this.apple.getPosition)
-            if(aApple || bApple)
-                return aApple ? -1 : 1
-
-            const aWouldSplit = this.wouldFillSplitGrid(aPosition)
-            const bWouldSplit = this.wouldFillSplitGrid(bPosition)
             // If one direction would split the grid, deprioritize it
-            if(aWouldSplit !== bWouldSplit)
-                return aWouldSplit ? 1 : -1
-
-            const aCount = countAvailableInEdgedGrid(determineEdgedViableGrid(1,aPosition,this.availableGrid,{}))
-            const bCount = countAvailableInEdgedGrid(determineEdgedViableGrid(1,bPosition,this.availableGrid,{}))
+            if(dataset[a].wouldFillSplitGrid !== dataset[b].wouldFillSplitGrid)
+                return dataset[a].wouldFillSplitGrid ? 1 : -1
 
             // If the space available in either of the directions is less than the space required for the snake, and not in the other, prioritize the one where the snake has enough space
-            if((aCount < this.snake.getBodyLength || bCount < this.snake.getBodyLength) && (aCount >= this.snake.getBodyLength || bCount >= this.snake.getBodyLength))
-                return aCount >= this.snake.getBodyLength  ? -1 : 1;
-
-            const aIsInGridWithApple = this.positionShareGridWithApple(aPosition);
-            const bIsInGridWithApple = this.positionShareGridWithApple(bPosition);
-
-            // Prioritize the direction which is in the grid with the apple
-            if(aIsInGridWithApple !== bIsInGridWithApple)
-                return aIsInGridWithApple ? -1 : 1;
+            if((dataset[a].hasSpaceForSnake === false && dataset[b].hasSpaceForSnake === true) || (dataset[a].hasSpaceForSnake === true && dataset[b].hasSpaceForSnake === false))
+                return dataset[a].availableSquares < dataset[b].availableSquares ? 1 : -1
 
             // Prioritise the largest section
-            if(aCount !== bCount)
-                return aCount < bCount ? 1 : -1
+            if(dataset[a].availableSquares !== dataset[b].availableSquares)
+                return dataset[a].availableSquares < dataset[b].availableSquares ? 1 : -1
 
-            const aEdges = this.determineAdjacentEdgesOnPosition(aPosition);
-            const bEdges = this.determineAdjacentEdgesOnPosition(bPosition);
+            // If the apple is adjacent to the snake, attempt that direction
+            if(dataset[a].isApplePosition || dataset[b].isApplePosition)
+                return dataset[a].isApplePosition ? -1 : 1
+
+            // Prioritize the direction which is in the grid with the apple
+            if(dataset[a].positionShareGridWithApple !== dataset[b].positionShareGridWithApple)
+                return dataset[a].positionShareGridWithApple ? -1 : 1;
+
             // All else being equal, stick to edges as much as possible
-            if(aEdges === bEdges) return 0;
-            return (aEdges < bEdges) ? 1 : -1;
+            if(dataset[a].edgeCount === dataset[b].edgeCount) return 0;
+            return (dataset[a].edgeCount < dataset[b].edgeCount) ? 1 : -1;
 
         })
 
@@ -460,12 +521,16 @@ export default class EdgeAdjacencyAlgorithm {
      * Attempts to naively correct the given direction for the snake head, simply moving it out of a collision if possible.
      *
      * @param direction
+     * @param allowedDirections Optional parameter for which directions should be allowed
      */
-    private attemptNaiveCollisionCorrect(direction: CardinalDirectionsEnum): CardinalDirectionsEnum {
+    private attemptNaiveCollisionCorrect(direction: CardinalDirectionsEnum, allowedDirections?: Array<CardinalDirectionsEnum>): CardinalDirectionsEnum {
 
         let directions = getWeightedDirections(this.snake.head,this.apple.getPosition);
 
         directions.splice(directions.indexOf(direction), 1);
+
+        if(typeof allowedDirections !== 'undefined')
+            directions = directions.filter(direction => allowedDirections.indexOf(direction) !== -1)
 
         for(let i = 0; i < directions.length; i++){
             if(this.grid.maySnakeMoveInDirection(this.snake.head, directions[i])){

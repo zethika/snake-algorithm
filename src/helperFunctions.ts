@@ -315,4 +315,26 @@ export function createHash(str: string, seed = 0): string {
     h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
     // @ts-ignore
     return 4294967296 * (2097151 & h2) + (h1>>>0);
-};
+}
+
+
+/**
+ * Checks each direction for whether it is viable, and if it is, if it contains at least x squares
+ *
+ * @param requiredCount
+ * @param viableValue
+ * @param position
+ * @param grid
+ */
+export function determineViableDirectionsWithAtLeastXSquares(requiredCount: number, viableValue: any, position: GridPosition, grid: GridMap<any>): Array<CardinalDirectionsEnum> {
+    const directions = getArrayOfAllDirections();
+    let allowedDirections: Array<CardinalDirectionsEnum> = [];
+    directions.forEach((direction) => {
+        const count = countAvailableInEdgedGrid(determineEdgedViableGrid(viableValue,determinePositionInDirection(position,direction),grid,{}));
+        if(count >= requiredCount)
+            allowedDirections.push(direction)
+    })
+
+    return allowedDirections;
+
+}
