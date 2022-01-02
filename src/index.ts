@@ -22,7 +22,7 @@ function game(sketch: p5) {
     let iteration: number = 0;
     let tempPath:Array<number> = [];
 
-    let isStopped: boolean = false;
+    let isStopped: boolean = true;
     let stopButton: p5.Element;
 
     let moveBackwardsButton: p5.Element;
@@ -30,6 +30,7 @@ function game(sketch: p5) {
 
     let steps: Array<StepState> = [];
     let showingStep: number|false = false;
+    let stepForwardOnce: boolean = false;
 
     sketch.setup = () => {
         // Environment setup
@@ -51,12 +52,11 @@ function game(sketch: p5) {
         moveBackwardsButton.attribute('disabled','')
 
         // Game setup
-        snake = new Snake();
-        //snake = new Snake([{"x":8,"y":3},{"x":8,"y":4},{"x":9,"y":4},{"x":9,"y":5},{"x":10,"y":5},{"x":10,"y":6},{"x":11,"y":6},{"x":11,"y":7},{"x":12,"y":7},{"x":12,"y":8},{"x":13,"y":8},{"x":14,"y":8},{"x":15,"y":8},{"x":16,"y":8},{"x":17,"y":8},{"x":18,"y":8},{"x":19,"y":8},{"x":19,"y":9},{"x":18,"y":9},{"x":17,"y":9},{"x":17,"y":10},{"x":16,"y":10},{"x":16,"y":9},{"x":15,"y":9},{"x":15,"y":10},{"x":14,"y":10},{"x":14,"y":9},{"x":13,"y":9},{"x":13,"y":10},{"x":12,"y":10},{"x":12,"y":9},{"x":11,"y":9},{"x":11,"y":8},{"x":10,"y":8},{"x":10,"y":7},{"x":9,"y":7},{"x":9,"y":6},{"x":8,"y":6},{"x":8,"y":5},{"x":7,"y":5},{"x":7,"y":4},{"x":6,"y":4},{"x":6,"y":3},{"x":5,"y":3},{"x":5,"y":2},{"x":6,"y":2},{"x":7,"y":2},{"x":8,"y":2},{"x":8,"y":1},{"x":8,"y":0},{"x":7,"y":0},{"x":7,"y":1},{"x":6,"y":1},{"x":5,"y":1},{"x":4,"y":1},{"x":3,"y":1},{"x":2,"y":1},{"x":2,"y":2},{"x":3,"y":2},{"x":3,"y":3},{"x":4,"y":3},{"x":4,"y":4},{"x":5,"y":4},{"x":5,"y":5},{"x":6,"y":5},{"x":6,"y":6},{"x":7,"y":6},{"x":7,"y":7},{"x":8,"y":7},{"x":8,"y":8},{"x":9,"y":8},{"x":9,"y":9},{"x":10,"y":9},{"x":10,"y":10},{"x":11,"y":10},{"x":11,"y":11},{"x":12,"y":11},{"x":12,"y":12},{"x":12,"y":13},{"x":12,"y":14},{"x":12,"y":15},{"x":12,"y":16},{"x":12,"y":17},{"x":12,"y":18},{"x":12,"y":19},{"x":11,"y":19},{"x":11,"y":18}],87)
-        //snake = new Snake([{"x":18,"y":9},{"x":17,"y":9},{"x":17,"y":10},{"x":16,"y":10},{"x":16,"y":9},{"x":15,"y":9},{"x":15,"y":10},{"x":14,"y":10},{"x":14,"y":9},{"x":13,"y":9},{"x":13,"y":10},{"x":12,"y":10},{"x":12,"y":9},{"x":11,"y":9},{"x":11,"y":8},{"x":10,"y":8},{"x":10,"y":7},{"x":9,"y":7},{"x":9,"y":6},{"x":8,"y":6},{"x":8,"y":5},{"x":7,"y":5},{"x":7,"y":4},{"x":6,"y":4},{"x":6,"y":3},{"x":5,"y":3},{"x":5,"y":2},{"x":6,"y":2},{"x":7,"y":2},{"x":8,"y":2},{"x":8,"y":1},{"x":8,"y":0},{"x":7,"y":0},{"x":7,"y":1},{"x":6,"y":1},{"x":5,"y":1},{"x":4,"y":1},{"x":3,"y":1},{"x":2,"y":1},{"x":2,"y":2},{"x":3,"y":2},{"x":3,"y":3},{"x":4,"y":3},{"x":4,"y":4},{"x":5,"y":4},{"x":5,"y":5},{"x":6,"y":5},{"x":6,"y":6},{"x":7,"y":6},{"x":7,"y":7},{"x":8,"y":7},{"x":8,"y":8},{"x":9,"y":8},{"x":9,"y":9},{"x":10,"y":9},{"x":10,"y":10},{"x":11,"y":10},{"x":11,"y":11},{"x":12,"y":11},{"x":12,"y":12},{"x":12,"y":13},{"x":12,"y":14},{"x":12,"y":15},{"x":12,"y":16},{"x":12,"y":17},{"x":12,"y":18},{"x":12,"y":19},{"x":11,"y":19},{"x":11,"y":18},{"x":11,"y":17},{"x":11,"y":16},{"x":11,"y":15},{"x":11,"y":14},{"x":11,"y":13},{"x":11,"y":12},{"x":10,"y":12},{"x":9,"y":12},{"x":8,"y":12},{"x":7,"y":12},{"x":6,"y":12},{"x":5,"y":12},{"x":4,"y":12},{"x":3,"y":12},{"x":2,"y":12},{"x":1,"y":12},{"x":0,"y":12},{"x":0,"y":13}],87)
+        //snake = new Snake();
+        snake = new Snake([{"x":1,"y":6},{"x":1,"y":5},{"x":2,"y":5},{"x":3,"y":5},{"x":4,"y":5},{"x":5,"y":5},{"x":6,"y":5},{"x":7,"y":5},{"x":8,"y":5},{"x":9,"y":5},{"x":10,"y":5},{"x":11,"y":5},{"x":12,"y":5},{"x":13,"y":5},{"x":14,"y":5},{"x":15,"y":5},{"x":16,"y":5},{"x":17,"y":5},{"x":18,"y":5},{"x":19,"y":5},{"x":19,"y":6},{"x":18,"y":6},{"x":17,"y":6},{"x":16,"y":6},{"x":15,"y":6},{"x":14,"y":6},{"x":13,"y":6},{"x":12,"y":6},{"x":12,"y":7},{"x":13,"y":7},{"x":13,"y":8},{"x":13,"y":9},{"x":12,"y":9},{"x":12,"y":8},{"x":11,"y":8},{"x":10,"y":8},{"x":10,"y":9},{"x":11,"y":9},{"x":11,"y":10},{"x":11,"y":11},{"x":10,"y":11},{"x":10,"y":10},{"x":9,"y":10},{"x":8,"y":10},{"x":8,"y":11},{"x":9,"y":11},{"x":9,"y":12},{"x":8,"y":12},{"x":8,"y":13},{"x":7,"y":13},{"x":7,"y":14},{"x":6,"y":14},{"x":6,"y":15},{"x":5,"y":15},{"x":5,"y":16},{"x":4,"y":16},{"x":4,"y":17},{"x":3,"y":17},{"x":2,"y":17},{"x":1,"y":17},{"x":0,"y":17},{"x":0,"y":16},{"x":1,"y":16},{"x":1,"y":15}],64)
         grid = new Grid(gridSquaresPrAxis,snake);
         algo = new EdgeAdjacencyAlgorithm(snake,grid,undefined,drawCalculations);
-        refreshApple();
+        refreshApple({x:0,y:6});
 
         steps.push({
             snakeBodyParts: JSON.parse(JSON.stringify(snake.getBodyParts)),
@@ -70,7 +70,7 @@ function game(sketch: p5) {
         sketch.background(51);
 
         // Update states
-        if(!isStopped) {
+        if(!isStopped || stepForwardOnce) {
             const algoStart = Date.now();
             const nextMove: CardinalDirectionsEnum | Array<number> = algo.determineNextMoveDirection(tempPath);
             algoTimes.push(Date.now() - algoStart);
@@ -102,6 +102,7 @@ function game(sketch: p5) {
                     })
                 }
             }
+            stepForwardOnce = false;
         }
 
         // Draw
@@ -235,8 +236,10 @@ function game(sketch: p5) {
      * Steps a single step forward, if possible
      */
     const stepForward = () => {
-        if(showingStep === false || showingStep === steps.length - 1)
+        if (showingStep === false || showingStep === steps.length - 1){
+            stepForwardOnce = true;
             return;
+        }
 
         showingStep = showingStep+1;
         applyStep(showingStep);
@@ -248,7 +251,10 @@ function game(sketch: p5) {
      */
     const applyStep = (step: number|false) => {
         const stepData = step === false ? steps[steps.length - 1] : steps[step];
-        console.log(stepData)
+        console.log('Setting new step')
+        console.log(JSON.stringify(stepData.snakeBodyParts))
+        console.log(stepData.snakeBodyParts.length)
+        console.log(stepData.apple)
         snake = new Snake(stepData.snakeBodyParts,stepData.snakeBodyParts.length);
         grid = new Grid(gridSquaresPrAxis,snake);
         algo = new EdgeAdjacencyAlgorithm(snake,grid,undefined,drawCalculations);
@@ -259,15 +265,13 @@ function game(sketch: p5) {
      * Updates the disabled state of the various buttons
      */
     const updateButtonStates = () => {
-        if(isStopped === false || steps.length === 0){
+        console.log(steps.length )
+        if(isStopped === false){
             moveBackwardsButton.attribute('disabled','')
             moveForwardsButton.attribute('disabled','')
-        } else if(showingStep === 0) {
+        } else if(showingStep === 0 || steps.length === 1) {
             moveBackwardsButton.attribute('disabled','')
             moveForwardsButton.removeAttribute('disabled')
-        } else if(showingStep === steps.length - 1 || showingStep === false) {
-            moveBackwardsButton.removeAttribute('disabled')
-            moveForwardsButton.attribute('disabled','')
         } else {
             moveBackwardsButton.removeAttribute('disabled')
             moveForwardsButton.removeAttribute('disabled')

@@ -1,4 +1,11 @@
-import {CardinalDirectionsEnum, getArrayOfAllDirections, GridMap, GridPosition, gridSquareSize} from "@src/definitions";
+import {
+    CardinalDirectionsEnum,
+    CardinalDirectionsMap,
+    getArrayOfAllDirections,
+    GridMap,
+    GridPosition,
+    gridSquareSize
+} from "@src/definitions";
 import * as p5 from "p5";
 
 /**
@@ -336,5 +343,34 @@ export function determineViableDirectionsWithAtLeastXSquares(requiredCount: numb
     })
 
     return allowedDirections;
+}
 
+/**
+ * Returns a CardinalDirectionsMap representing the position in each cardinal direction from the given position
+ *
+ * @param position
+ */
+export function getAdjacentPositions(position: GridPosition): CardinalDirectionsMap<GridPosition>{
+    return {
+        0: determinePositionInDirection(position,0),
+        1: determinePositionInDirection(position,1),
+        2: determinePositionInDirection(position,2),
+        3: determinePositionInDirection(position,3),
+    };
+}
+
+/**
+ * Determines whether the given position is on an edge of the given grid.
+ * @param position
+ * @param grid
+ */
+export function isPositionOnGridBorder(position: GridPosition, grid: GridMap<any>): boolean{
+    const adjacent: CardinalDirectionsMap<GridPosition> = getAdjacentPositions(position);
+
+    Object.entries(adjacent).some((record) => {
+        if(isPositionValid(record[1],grid) === false)
+            return true;
+    })
+
+    return false;
 }

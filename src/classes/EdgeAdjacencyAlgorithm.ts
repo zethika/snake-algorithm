@@ -22,7 +22,7 @@ import {
     getNextDirectDirection,
     countAvailableInEdgedGrid,
     createHashFromObject,
-    setGridPositionValue, determineViableDirectionsWithAtLeastXSquares
+    setGridPositionValue, determineViableDirectionsWithAtLeastXSquares, isPositionOnGridBorder
 } from "@src/helperFunctions";
 
 interface sortingPriorityDataset {
@@ -31,7 +31,8 @@ interface sortingPriorityDataset {
     availableSquares: number
     hasSpaceForSnake: boolean
     positionShareGridWithApple: boolean
-    edgeCount: number
+    edgeCount: number,
+    hasGridBorder: boolean
 }
 
 /**
@@ -118,6 +119,7 @@ export default class EdgeAdjacencyAlgorithm {
      */
     determineNextMoveDirection(tempPath: Array<number>): CardinalDirectionsEnum|Array<number>{
         this.buildAvailableGrid();
+
         // Determine which directions the naive algorithm may make use of
         const allowedNaiveDirections = determineViableDirectionsWithAtLeastXSquares(this.snake.getBodyLength,1,this.snake.head,this.availableGrid);
 
@@ -438,12 +440,16 @@ export default class EdgeAdjacencyAlgorithm {
 
     /**
      * Sorts an array of directions, based on the number of edges adjacent to a neighbor of the source in the single direction, as well as whether a direction would split grids
+     *
+     * This is the primary algorithm logic, which is applied at all available directions for each step performed.
+     *
      * @param directions
      * @param source
      */
     private weightDirectionsByLocalState(directions: Array<CardinalDirectionsEnum>, source: GridPosition){
 
-        // Yuck, this should be optimized - This is done for -every- step of the calculation, for every direction.
+        // This should be heavily optimized once the priorities are finalized.
+        // This is done for -every- step of the calculation, for every direction.
         // A ton of steps involved here.
         // @todo figure out a better way to apply the various priorities
 
@@ -458,11 +464,15 @@ export default class EdgeAdjacencyAlgorithm {
                 availableSquares: count,
                 hasSpaceForSnake: count > this.snake.getBodyLength,
                 positionShareGridWithApple: this.positionShareGridWithApple(position),
-                edgeCount: this.determineAdjacentEdgesOnPosition(position)
+                edgeCount: this.determineAdjacentEdgesOnPosition(position),
+                hasGridBorder: isPositionOnGridBorder(position,this.availableGrid)
             }
         })
 
+        console.log(dataset)
+
         directions.sort((a,b) => {
+            console.log('___SORT____')
             // If one direction would split the grid, deprioritize it
             if(dataset[a].wouldFillSplitGrid !== dataset[b].wouldFillSplitGrid)
                 return dataset[a].wouldFillSplitGrid ? 1 : -1
