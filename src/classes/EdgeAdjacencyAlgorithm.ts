@@ -13,7 +13,6 @@ import {
     determinePositionInDirection,
     getPositionCoordinatesAsString,
     getWeightedDirections,
-    isPositionsAdjacent,
     isPositionsIdentical,
     isPositionValid,
     isPositionViable,
@@ -22,7 +21,7 @@ import {
     getNextDirectDirection,
     countAvailableInEdgedGrid,
     createHashFromObject,
-    setGridPositionValue, determineViableDirectionsWithAtLeastXSquares, isPositionOnGridBorder
+    determineViableDirectionsWithAtLeastXSquares, isPositionOnGridBorder
 } from "@src/helperFunctions";
 
 interface sortingPriorityDataset {
@@ -208,7 +207,7 @@ export default class EdgeAdjacencyAlgorithm {
                 this.path = [];
                 this.added = {};
                 this.addPosition(start);
-                const hamResult = this.hamCycleUtil(currentWeightedDirections[i],tempPath, 1);
+                const hamResult = this.calculateNextPathPosition(currentWeightedDirections[i],tempPath, 1);
                 if(Array.isArray(hamResult))
                     return hamResult;
 
@@ -236,15 +235,11 @@ export default class EdgeAdjacencyAlgorithm {
     }
 
     /**
-     * A recursive utility function
-     * to solve hamiltonian cycle problem
-     * */
-    private hamCycleUtil(originatingDirection: CardinalDirectionsEnum,tempPath: Array<number>, tempPosition: number): boolean|Array<number> {
+     * A recursive function attempting to calculate the next viable step of the path
+     *
+     **/
+    private calculateNextPathPosition(originatingDirection: CardinalDirectionsEnum,tempPath: Array<number>, tempPosition: number): boolean|Array<number> {
         const previousPath: GridPosition = this.path[this.path.length - 1];
-
-        // If we need to capture the longest path, save each path stepped into if it is longer than the last saved
-        if(this.useLongestPath && this.path.length > this.longestPath.length)
-            this.longestPath = [...this.path];
 
         // If we have already checked the grid present from this position, short circuit as early as possible
         const edgedGridHash = createHashFromObject(determineEdgedViableGrid(1,previousPath, this.availableGrid,{}));
@@ -252,6 +247,11 @@ export default class EdgeAdjacencyAlgorithm {
             return false;
 
         this.gridsChecked[edgedGridHash] = true;
+
+        // If we need to capture the longest path, save each path stepped into if it is longer than the last saved
+        if(this.useLongestPath && this.path.length > this.longestPath.length)
+            this.longestPath = [...this.path];
+
 
         // If we are at the last expected position of the cycle, or the calculated path is longer than the snake
         if ((this.useLongestPath === false && this.path.length === this.desiredPathLength) || this.path.length > this.snake.getBodyLength+1) {
@@ -282,7 +282,7 @@ export default class EdgeAdjacencyAlgorithm {
                     return tempPath;
                 }
                 // Proceed to the next point
-                const hamResult = this.hamCycleUtil(directions[i],tempPath,tempPosition+1);
+                const hamResult = this.calculateNextPathPosition(directions[i],tempPath,tempPosition+1);
                 if(Array.isArray(hamResult))
                     return hamResult;
                 if(hamResult === true)
@@ -472,7 +472,6 @@ export default class EdgeAdjacencyAlgorithm {
         console.log(dataset)
 
         directions.sort((a,b) => {
-            console.log('___SORT____')
             // If one direction would split the grid, deprioritize it
             if(dataset[a].wouldFillSplitGrid !== dataset[b].wouldFillSplitGrid)
                 return dataset[a].wouldFillSplitGrid ? 1 : -1
